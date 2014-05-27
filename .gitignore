@@ -1,1 +1,6 @@
 checkpoints/*
+*.log
+magrheol
+*.o
+*.d
+*.a
