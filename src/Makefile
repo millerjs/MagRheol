@@ -3,7 +3,7 @@ BIN = ./magrheol
 
 CC = gcc
 
-CFLAGS = -ggdb -g -Wall -fpic  -MMD -MP -DDEBUG -O3 -lm -std=c99
+CFLAGS = -ggdb -g -Wall -fpic  -MMD -MP -DDEBUG -O3 -lm -std=c99 -Werror
 LDLIBS = -lm -lrt -pthread -Llibjosh/ -ljosh
 
 OBJS = maghreol.o \

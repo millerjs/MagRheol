@@ -12,6 +12,7 @@
 
 #include "libjosh.h"
 
+
 int __timeout__           = 0;
 int __catching_exit__     = 0;
 int __catching_segfault__ = 0;
@@ -46,6 +47,8 @@ int open_log_file(char *path)
     LOG("# Magrheol: created by Josh Miller for #");
     LOG("# computational chemistry Spring 2014. #");
     LOG("########################################");
+    fprintf(stderr, "Running magreol.\nBy Joshua Miller.\n");
+    fprintf(stderr, "Writing to log file [%s].\n", path);
     return 0;
 }
 
@@ -53,6 +56,7 @@ int close_log_file()
 {
     LOG("Closing log file...");
     if (logfile) fclose(logfile);
+    fprintf(stderr, "Simulation completed.\n");
     return 0;
 }
 

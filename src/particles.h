@@ -11,13 +11,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+/* #include "domain.h" */
+
+typedef double vec[3];
+
 typedef struct{
-    double r[3];
-    double v[3];
-    double F[3];
+    vec r;
+    vec v;
+    vec F;
     double m;
+    double sigma;
 } particle;
 
-particle *particle_new(double x, double y, double z);
+    
+int particle_new(particle *p);
+double norm(vec r);
+void add(vec v1, vec v2, vec res);
+void scale(vec v, double a);
+void print_vec(vec v);
+
 
 #endif
