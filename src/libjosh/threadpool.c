@@ -39,7 +39,10 @@ threadpool_t *threadpool_create(loop_t loop, int n)
 
     pool->threads = threads;
     pool->size = n;
-
+    pthread_barrier_init(&pool->barrier1, NULL, n);
+    pthread_barrier_init(&pool->barrier2, NULL, n);
+    pthread_barrier_init(&pool->barrier3, NULL, n);
+    
     threadpool_stop(pool);
     
     for (int i = 0; i < n; i++){

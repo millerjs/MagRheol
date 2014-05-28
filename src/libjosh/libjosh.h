@@ -86,6 +86,7 @@ int uerr;
                 __gry__, buf, __nrm__);                 \
         fprintf(logfile, fmt, ##__VA_ARGS__);           \
         fprintf(logfile, "%s\n", __nrm__);              \
+        fflush(logfile);                                \
     } while (0)
 
 int open_log_file(char* path);

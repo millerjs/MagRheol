@@ -13,6 +13,9 @@
 #define THREADS_H_
 
 #include <pthread.h>
+#include <semaphore.h>
+#include "../domain.h"
+
 
 typedef void *(*loop_t)(void*);
 
@@ -25,6 +28,10 @@ typedef struct thread_t {
 } thread_t;
 
 typedef struct threadpool_t{
+    pthread_barrier_t barrier1;
+    pthread_barrier_t barrier2;
+    pthread_barrier_t barrier3;
+    domain *dm;
     thread_t *threads;
     int size;
     int start;

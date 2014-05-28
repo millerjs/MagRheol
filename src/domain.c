@@ -37,7 +37,7 @@ int domain_set_boundary(domain *dm, int id, boundary_t b){
     return dm->boundary[id] = b;
 }
 
-double random(double min, double max)
+double randomd(double min, double max)
 {
     return (rand()/(double)RAND_MAX)*max + min;
 }
@@ -51,9 +51,9 @@ int domain_populate(domain *dm, int n)
     for (int i = 0; i < n; i++){
         particle_new(dm->p+i);
         for (int j = 0; j < 3; j ++){
-            dm->p[i].r[j] = random(0, dm->dim[j]);
-            dm->p[i].v[j] = dm->v0[j] + random(-.1, .1);
-            dm->p[i].sigma = 3.7; // Angstrom
+            dm->p[i].r[j] = randomd(0, dm->dim[j]);
+            dm->p[i].v[j] = dm->v0[j] + randomd(-.1, .1);
+            dm->p[i].sigma = .0001; // Angstrom
         }
         dm->p[i].m = 1;
     }
@@ -80,7 +80,6 @@ double dist(domain *dm, particle *p1, particle *p2, vec r)
     return sqrt(temp);
 }
 
-
 void force_LJ(domain *dm, particle *p1, particle *p2, vec res)
 {
     if (p1==p2){
@@ -92,7 +91,8 @@ void force_LJ(domain *dm, particle *p1, particle *p2, vec res)
     double t6 = pow(p1->sigma/d, 6);
     double t12 = t6*t6;
     double f = 4*EPS*(12/d*t12 - 6/d*t6);
-    scale(res, f);
+    if (f> 100)fprintf(stderr, "woah: %f\n", f);
+    scale(res, MIN(f, 100));
 }
 
 int calculate_force(domain *dm, int i)
@@ -107,9 +107,9 @@ int calculate_force(domain *dm, int i)
     return 0;
 }
 
-int update_positions(domain *dm)
+int update_positions(domain *dm, int a, int b)
 {
-    for (int i = 0; i < dm->npart; i++){
+    for (int i = a; i < b; i++){
         for (int j = 0; j < 3; j++){
             double dx =  dm->p[i].v[j]*dt + dm->p[i].F[j]*dt*dt;
             if (dm->p[i].r[j]+dx < 0 || dm->p[i].r[j]+dx > dm->dim[j]){
@@ -117,10 +117,11 @@ int update_positions(domain *dm)
                     dm->p[i].v[j] *= -1;
                 } else if (PERIODIC == dm->boundary[j]) {
                     dm->p[i].r[j] += dx;
+                    double diff = ((long)(dm->p[i].r[j]/dm->dim[j])+1)*dm->dim[j];
                     if (dm->p[i].r[j] < 0)
-                        dm->p[i].r[j] += dm->dim[j];
+                        dm->p[i].r[j] += diff;
                     else 
-                        dm->p[i].r[j] -= dm->dim[j];
+                        dm->p[i].r[j] -= diff;
                 }
             } else {
                 dm->p[i].r[j] += dx;
@@ -130,9 +131,9 @@ int update_positions(domain *dm)
     return 0;
 }
 
-int update_forces_velocities(domain *dm)
+int update_forces_velocities(domain *dm, int a, int b)
 {
-    for (int i = 0; i < dm->npart; i++){
+    for (int i = a; i < b; i++){
         for (int j = 0; j < 3; j++){
             double F = dm->p[i].F[j];
             calculate_force(dm, i);

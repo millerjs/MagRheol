@@ -36,10 +36,10 @@ domain *domain_new(double x, double y, double z);
 int domain_populate(domain *d, int n);
 int domain_set_v0(domain *dm, double x, double y, double z);
 int domain_set_boundary(domain *dm, int id, boundary_t b);
-int update_positions(domain *dm);
-int update_forces_velocities(domain *dm);
+int update_positions(domain *dm, int a, int b);
+int update_forces_velocities(domain *dm, int a, int b);
 int print_checkpoint(char* basepath, domain *dm);
 double dist(domain *dm, particle *p1, particle *p2, vec r);
-double random(double min, double max);
+double randomd(double min, double max);
 
 #endif 
