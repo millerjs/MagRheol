@@ -12,11 +12,12 @@
 #include <stdio.h>
 
 /* #include "domain.h" */
-
 typedef double vec[3];
+extern const int VECSIZE;
 
 typedef struct{
     vec r;
+    vec lastr;
     vec v;
     vec F;
     double m;

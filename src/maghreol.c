@@ -17,26 +17,25 @@
 
 int step = 0;
 
-
 /* Parameters */
-int     npart                =  1024;
-double  maxt                 =  1000.;
-int     checkpoint_interval  =  1000;
-double  L                    =  50;
+int     npart                =  216*2;
+double  maxt                 =  .2;
+int     checkpoint_interval  =  1;
+double  L                    =  21.8;
 
 void equillibrate(domain *dm)
 {
+
     LOG("Starting equilibration.");
-    int NEQUIL = 100;
+    int NEQUIL = 0;
     for (int i = 0; i < NEQUIL; i++){
         update_positions(dm, 0, dm->npart);
-        update_forces_velocities(dm, 0, dm->npart);
     }
     LOG("Equilibration steps %d complete", NEQUIL);
     
-    for (int i = 0; i < dm->npart; i++)
-        for (int j = 0; j < 3; j++)
-            dm->p[i].v[j] = dm->v0[j] + randomd(-1., 1.);
+    for (int m = 0; m < dm->npart; m++)
+        for (int d = 0; d < 3; d++)
+            dm->v[3*m+d] = dm->v0[3*m+d] + randomd(-1., 1.);
 
     LOG("Velocities re-sampled.");
 }
@@ -51,19 +50,12 @@ void *evolveThreaded(void *args)
     domain *dm = thread->pool->dm;
     int n = dm->npart;
 
-
     int m = n/thread->pool->size;
     int a = thread->id*m;
     
     while (t < maxt){
 
-        /* Update positions and regroup */
-        update_positions(dm, a, a+m);
         pthread_barrier_wait(&thread->pool->barrier1);
-
-        /* Update velocities and regroup */
-        update_forces_velocities(dm, a, a+m);
-        pthread_barrier_wait(&thread->pool->barrier2);
 
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
@@ -73,10 +65,14 @@ void *evolveThreaded(void *args)
             step += 1;
         }
 
-        pthread_barrier_wait(&thread->pool->barrier3);
+        /* Update positions and regroup */
+        update_positions(dm, a, a+m);
+        pthread_barrier_wait(&thread->pool->barrier2);
 
     }
     
+    print_checkpoint("checkpoints", dm);
+
     return NULL;
 }
 
@@ -84,9 +80,11 @@ void setup(domain *dm)
 {
     /* Establish the domain */
     domain_populate(dm, npart);
-    domain_set_v0(dm, -10.0, 0, 0);
+    /* domain_set_v0(dm, 0.0, 0, 0); */
     domain_set_boundary(dm, 0, PERIODIC);
-    dt = 1e-5;
+    domain_set_boundary(dm, 1, REFLECTING);
+    domain_set_boundary(dm, 2, REFLECTING);
+
 }
 
 int main(int argc, char *argv[])
@@ -94,14 +92,15 @@ int main(int argc, char *argv[])
 
     /* Open a log file */
     open_log_file("magrheol.log");
-    domain *dm = domain_new(L, L, L);
+    domain *dm = domain_new(2*L, L, L);
     setup(dm);
 
-    threadpool_t *pool = threadpool_create(&evolveThreaded, 16);
+    threadpool_t *pool = threadpool_create(&evolveThreaded, 1);
     pool->dm = dm;
 
     equillibrate(dm);
     threadpool_start(pool);
+    dt = .001;
 
     /* Clean up */
     threadpool_join(pool);

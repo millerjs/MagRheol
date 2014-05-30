@@ -14,7 +14,7 @@
 #include "libjosh/libjosh.h"
 
 double t = 0;
-double dt = 0;
+double dt = .001;
 
 domain *domain_new(double x, double y, double z)
 {
@@ -29,7 +29,6 @@ domain *domain_new(double x, double y, double z)
     }
     LOG("Created domain %.2f x %.2f x %.2f", x, y, z);
     new->npart = 0;
-    new->p = NULL;
     return new;
 }
 
@@ -46,8 +45,11 @@ int domain_populate(domain *dm, int n)
 {
     dm->npart = n;
     LOG("Populating domain [%p] with [%d] particles", dm, n);
-    ERROR_IF(dm->p, "This domain has already been populated");
-    ERROR_IF(!(dm->p = malloc(n*sizeof(particle))), "Unable to allocate particles");
+    ERROR_IF(!(dm->r = malloc(n*VECSIZE)), "Unable to allocate positions");
+    ERROR_IF(!(dm->oldr = malloc(n*VECSIZE)), "Unable to allocate old positions");
+    ERROR_IF(!(dm->v = malloc(n*VECSIZE)), "Unable to allocate old positions");
+    ERROR_IF(!(dm->F = malloc(n*VECSIZE)), "Unable to allocate old positions");
+    ERROR_IF(!(dm->temp = malloc(n*VECSIZE)), "Unable to allocate buffer space");
 
     double r = pow(dm->npart, 1/3.);
     vec cell = {dm->dim[0]/r, dm->dim[1]/r, dm->dim[2]/r};
@@ -60,15 +62,16 @@ int domain_populate(domain *dm, int n)
         for (int j = 0; j < ceil(r); j++){
             for (int k = 0; k < ceil(r); k++){
 
-                particle_new(dm->p+m);
-                dm->p[m].r[0] = (i+.5)*cell[0] + randomd(-cell[0]/2, cell[0]/2);
-                dm->p[m].r[1] = (j+.5)*cell[1] + randomd(-cell[1]/2, cell[1]/2);
-                dm->p[m].r[2] = (k+.5)*cell[2] + randomd(-cell[2]/2, cell[2]/2);
-                
-                for (int d = 0; d < 3; d++)
-                    dm->p[m].v[d] = dm->v0[d] + randomd(-1., 1.);
-                dm->p[m].sigma = 3.4; // Angstrom
-                dm->p[m].m = 1;
+                dm->oldr[3*m+0] = (i+.5)*cell[0];
+                dm->oldr[3*m+1] = (j+.5)*cell[1];
+                dm->oldr[3*m+2] = (k+.5)*cell[2];
+
+                dt = .001;
+                for (int d = 0; d < 3; d ++){
+                    dm->v[3*m+d] = dm->v0[d] + randomd(-100, 100);
+                    dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
+                }
+
                 m++;
                 if (m >= dm->npart) break;
             }
@@ -89,92 +92,106 @@ int domain_set_v0(domain *dm, double x, double y, double z)
     return 0;
 }
 
-double dist(domain *dm, particle *p1, particle *p2, vec r)
+double dist(domain *dm, int m, int n, vec r)
 {
     double temp = 0;
-    for (int i = 0; i < 3; i ++){
-        r[i] = p1->r[i] - p2->r[i];
-        r[i] = r[i] - (dm->boundary[i] == PERIODIC)*rint(r[i]/dm->dim[i]);
-        temp += r[i]*r[i];    
+    for (int d = 0; d < 3; d ++){
+        r[d] = dm->r[3*m+d] - dm->r[3*n+d];
+        r[d] = r[d] - (dm->boundary[d] == PERIODIC)*rint(r[d]/dm->dim[d]);
+        temp += r[d]*r[d];    
     }
     return sqrt(temp);
 }
 
-void force_Drag(domain *dm, particle *p, vec res)
+void force_Drag(domain *dm, int m)
 {
     for (int j = 1; j < 3; j++){
-        if (p->r[j] < p->sigma || p->r[j] > dm->dim[j] - p->sigma){
-            /* res[j] = -p->m*p->v[j]; */
-            p->v[0] = 0;
-            p->F[0] = 0;
+        if (dm->r[3*m+j] < SIGMA || dm->r[3*+j] > dm->dim[j] - SIGMA){
+            dm->v[3*m] = 0;
+            dm->F[3*m] = 0;
         }
     }
 }
 
-void force_LJ(domain *dm, particle *p1, particle *p2, vec res)
+void force_Wall(domain *dm, int m)
 {
-    if (p1==p2){
-        scale(res, 0);
-        return;
+    for (int d = 0; d < 3; d++){
+        double r = MIN(2*dm->r[3*m+d], dm->dim[d] - 2*dm->r[3*m+d]);
+        r = 1.0;
+        double t6 = pow(SIGMA/r, 6);
+        double t12 = t6*t6;
+        double f = 4*EPS*(12/r*t12 - 6/r*t6);
+        for (int d = 0; d < 3; d++)
+            dm->F[3*m+d] += MAX(MIN(f, 1e3), -1e3);
     }
-    double d = dist(dm, p1, p2, res);
-    norm(res);
-    double t6 = pow(p1->sigma/d, 6);
-    double t12 = t6*t6;
-    double f = 4*EPS*(12/d*t12 - 6/d*t6);
-    double maxf = 1e6;
-    WARN_IF(f > maxf, "TIME-STEP TOO LARGE.");
-    scale(res, MIN(f, maxf));
 }
 
-int calculate_force(domain *dm, int i)
+void force_LJ(domain *dm, int m)
 {
-    vec F = {0,0,0};
-    vec temp;
-    for (int j = 0; j < dm->npart; j++){
-        force_LJ(dm, dm->p+j, dm->p+i, temp);
-        add(temp, F, F);
+    for (int i = 0; i < dm->npart; i++){
+        if (i!=m){
+            vec res;
+            double d = MAX(dist(dm, m, i, res), 1e-4);
+            double t6 = pow(SIGMA/d, 6);
+            double t12 = t6*t6;
+            double f = 4*EPS*(12/d*t12 - 6/d*t6);
+            for (int d = 0; d < 3; d++)
+                dm->F[3*m+d] += MAX(MIN(res[d]*f, 1e3), -1e3);
+        }
     }
-    force_Drag(dm, dm->p+i, temp);
-    memcpy(dm->p[i].F, F, 3*sizeof(double));
+}
+
+int calculate_force(domain *dm, int m)
+{
+    for (int d = 0; d < 3; d++)
+        dm->F[3*m+d] = 0;
+    force_LJ(dm, m);
+    /* force_Wall(dm, m); */
     return 0;
+}
+
+void check_boundary(domain *dm, int m)
+{
+    for (int d = 0; d < 3; d ++){
+        if (dm->boundary[d] == PERIODIC){
+
+            if (dm->r[3*m+d] > dm->dim[d]){
+                dm->r[3*m+d] -= dm->dim[d];
+                dm->oldr[3*m+d] -= dm->dim[d];
+            } else if (dm->r[3*m+d] < 0) {
+                dm->r[3*m+d] += dm->dim[d];
+                dm->oldr[3*m+d] += dm->dim[d];        
+            }
+        } else if (dm->boundary[d] == REFLECTING) {
+            if (dm->r[3*m+d] > dm->dim[d]){
+                dm->r[3*m+d] = 2*dm->dim[d] - dm->r[3*m+d];
+                dm->oldr[3*m+d] = 2*dm->dim[d] - dm->oldr[3*m+d];
+            } else if (dm->r[3*m+d] < 0) {
+                dm->r[3*m+d] = dm->dim[d];
+                dm->oldr[3*m+d] = dm->dim[d];        
+            }
+        }
+    }
 }
 
 int update_positions(domain *dm, int a, int b)
 {
-    for (int i = a; i < b; i++){
-        for (int j = 0; j < 3; j++){
-            double dx =  dm->p[i].v[j]*dt + dm->p[i].F[j]*dt*dt/(2*dm->p[i].m);
-            if (dm->p[i].r[j]+dx < 0 || dm->p[i].r[j]+dx > dm->dim[j]){
-                if (REFLECTING == dm->boundary[j]){
-                    dm->p[i].v[j] *= -1;
-                } else if (PERIODIC == dm->boundary[j]) {
-                    dm->p[i].r[j] += dx;
-                    double diff = ((long)(dm->p[i].r[j]/dm->dim[j])+1)*dm->dim[j];
-                    if (dm->p[i].r[j] < 0)
-                        dm->p[i].r[j] += diff;
-                    else 
-                        dm->p[i].r[j] -= diff;
-                }
-            } else {
-                dm->p[i].r[j] += dx;
-            }
+    for (int m = a; m < b; m++){
+        calculate_force(dm, m);
+        for (int d = 0; d < 3; d++){
+            dm->temp[3*m+d] = 2*dm->r[3*m+d] - dm->oldr[3*m+d] + dm->F[3*m+d]*10*dt*dt;
+            dm->v[3*m+d] = dm->temp[3*m+d] - dm->oldr[3*m+d]/(2*dt);
         }
     }
+    double *temp = dm->oldr;
+    dm->oldr = dm->r;
+    dm->r = dm->temp;
+    dm->temp = temp;
+    for (int m = a; m < b; m++)
+        check_boundary(dm, m);
     return 0;
 }
 
-int update_forces_velocities(domain *dm, int a, int b)
-{
-    for (int i = a; i < b; i++){
-        for (int j = 0; j < 3; j++){
-            double F = dm->p[i].F[j];
-            calculate_force(dm, i);
-            dm->p[i].v[j] += 1/2.*(1/dm->p[i].m)*(F + dm->p[i].F[j])*dt;
-        }
-    }
-    return 0;
-}
 
 
 int checkpoint_count = 0;
@@ -183,11 +200,11 @@ int print_checkpoint(char *basepath, domain *dm){
     sprintf(path, "%s/chk_%05d.dat", basepath, checkpoint_count++);
     FILE *chkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
-    for (int i = 0; i < dm->npart; i++){
-        for (int j = 0; j < 3; j++)
-            fprintf(chkpnt, "%f\t", dm->p[i].r[j]);
-        for (int j = 0; j < 3; j++)
-            fprintf(chkpnt, "%f\t", dm->p[i].v[j]);
+    for (int m = 0; m < dm->npart; m++){
+        for (int d = 0; d < 3; d++)
+            fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
+        for (int d = 0; d < 3; d++)
+            fprintf(chkpnt, "%f\t", dm->F[3*m+d]);
         fprintf(chkpnt, "\n");
     }
     LOG("Wrote to checkpoint file [%s]\t%f", path, t);

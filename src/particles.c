@@ -12,6 +12,8 @@
 
 #include "particles.h"
 
+const int VECSIZE = 3*sizeof(double);
+
 int particle_new(particle *p)
 {
     for (int i = 0; i < 3; i ++){
