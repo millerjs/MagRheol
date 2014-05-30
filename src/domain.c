@@ -52,8 +52,8 @@ int domain_populate(domain *dm, int n)
         particle_new(dm->p+i);
         for (int j = 0; j < 3; j ++){
             dm->p[i].r[j] = randomd(0, dm->dim[j]);
-            dm->p[i].v[j] = dm->v0[j] + randomd(-.1, .1);
-            dm->p[i].sigma = .0001; // Angstrom
+            dm->p[i].v[j] = dm->v0[j] + randomd(-1, 1);
+            dm->p[i].sigma = 3.4; // Angstrom
         }
         dm->p[i].m = 1;
     }
@@ -80,6 +80,18 @@ double dist(domain *dm, particle *p1, particle *p2, vec r)
     return sqrt(temp);
 }
 
+void force_Drag(domain *dm, particle *p, vec res)
+{
+    const float LAMINA = .01;
+    for (int j = 1; j < 3; j++){
+        if (p->r[j] < LAMINA*dm->dim[j] || p->r[j] > (1.0-LAMINA)*dm->dim[j]){
+            /* res[j] = -p->m*p->v[j]; */
+            p->v[0] = 0;
+            p->F[0] = 0;
+        }
+    }
+}
+
 void force_LJ(domain *dm, particle *p1, particle *p2, vec res)
 {
     if (p1==p2){
@@ -91,8 +103,8 @@ void force_LJ(domain *dm, particle *p1, particle *p2, vec res)
     double t6 = pow(p1->sigma/d, 6);
     double t12 = t6*t6;
     double f = 4*EPS*(12/d*t12 - 6/d*t6);
-    if (f> 100)fprintf(stderr, "woah: %f\n", f);
-    scale(res, MIN(f, 100));
+    WARN_IF(f > 1e6, "TIME-STEP TOO LARGE.");
+    scale(res, MIN(f, 1e6));
 }
 
 int calculate_force(domain *dm, int i)
@@ -103,6 +115,7 @@ int calculate_force(domain *dm, int i)
         force_LJ(dm, dm->p+j, dm->p+i, temp);
         add(temp, F, F);
     }
+    force_Drag(dm, dm->p+i, temp);
     memcpy(dm->p[i].F, F, 3*sizeof(double));
     return 0;
 }
@@ -111,7 +124,7 @@ int update_positions(domain *dm, int a, int b)
 {
     for (int i = a; i < b; i++){
         for (int j = 0; j < 3; j++){
-            double dx =  dm->p[i].v[j]*dt + dm->p[i].F[j]*dt*dt;
+            double dx =  dm->p[i].v[j]*dt + dm->p[i].F[j]*dt*dt/(2*dm->p[i].m);
             if (dm->p[i].r[j]+dx < 0 || dm->p[i].r[j]+dx > dm->dim[j]){
                 if (REFLECTING == dm->boundary[j]){
                     dm->p[i].v[j] *= -1;
@@ -136,7 +149,7 @@ int update_forces_velocities(domain *dm, int a, int b)
     for (int i = a; i < b; i++){
         for (int j = 0; j < 3; j++){
             double F = dm->p[i].F[j];
-            calculate_force(dm, i);
+            /* calculate_force(dm, i); */
             dm->p[i].v[j] += 1/2.*(dm->p[i].m)*(F + dm->p[i].F[j])*dt;
         }
     }

@@ -66,7 +66,7 @@ int uerr;
 
 #define INFO_DUMP(msg)                                  \
     do {                                                \
-        fprintf(stderr, "%s:%d: %s: %s: ",              \
+        fprintf(logfile, "%s:%d: %s: %s: ",              \
                 __FILE__,                               \
                 __LINE__,                               \
                 __func__,                               \
