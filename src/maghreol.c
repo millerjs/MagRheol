@@ -32,12 +32,6 @@ void equillibrate(domain *dm)
         update_positions(dm, 0, dm->npart);
     }
     LOG("Equilibration steps %d complete", NEQUIL);
-    
-    for (int m = 0; m < dm->npart; m++)
-        for (int d = 0; d < 3; d++)
-            dm->v[3*m+d] = dm->v0[3*m+d] + randomd(-1., 1.);
-
-    LOG("Velocities re-sampled.");
 }
 
 void *evolveThreaded(void *args)
@@ -80,7 +74,7 @@ void setup(domain *dm)
 {
     /* Establish the domain */
     domain_populate(dm, npart);
-    /* domain_set_v0(dm, 0.0, 0, 0); */
+    domain_set_v0(dm, -10, 0, 0);
     domain_set_boundary(dm, 0, PERIODIC);
     domain_set_boundary(dm, 1, REFLECTING);
     domain_set_boundary(dm, 2, REFLECTING);
@@ -100,7 +94,6 @@ int main(int argc, char *argv[])
 
     equillibrate(dm);
     threadpool_start(pool);
-    dt = .001;
 
     /* Clean up */
     threadpool_join(pool);

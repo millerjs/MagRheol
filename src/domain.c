@@ -14,7 +14,7 @@
 #include "libjosh/libjosh.h"
 
 double t = 0;
-double dt = .001;
+double dt = .01;
 
 domain *domain_new(double x, double y, double z)
 {
@@ -68,7 +68,7 @@ int domain_populate(domain *dm, int n)
 
                 dt = .001;
                 for (int d = 0; d < 3; d ++){
-                    dm->v[3*m+d] = dm->v0[d] + randomd(-100, 100);
+                    dm->v[3*m+d] = dm->v0[d] + randomd(-50, 60) - 100*(d==0);
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
 
@@ -115,8 +115,9 @@ void force_Drag(domain *dm, int m)
 
 void force_Wall(domain *dm, int m)
 {
+    double r;
     for (int d = 0; d < 3; d++){
-        double r = MIN(2*dm->r[3*m+d], dm->dim[d] - 2*dm->r[3*m+d]);
+        r = dm->r[3*m+d] < dm->dim[d]/2 ? dm->r[3*m+d] : dm->dim[d]- dm->r[3*m+d];
         r = 1.0;
         double t6 = pow(SIGMA/r, 6);
         double t12 = t6*t6;
@@ -146,7 +147,6 @@ int calculate_force(domain *dm, int m)
     for (int d = 0; d < 3; d++)
         dm->F[3*m+d] = 0;
     force_LJ(dm, m);
-    /* force_Wall(dm, m); */
     return 0;
 }
 
@@ -154,7 +154,6 @@ void check_boundary(domain *dm, int m)
 {
     for (int d = 0; d < 3; d ++){
         if (dm->boundary[d] == PERIODIC){
-
             if (dm->r[3*m+d] > dm->dim[d]){
                 dm->r[3*m+d] -= dm->dim[d];
                 dm->oldr[3*m+d] -= dm->dim[d];
@@ -166,9 +165,10 @@ void check_boundary(domain *dm, int m)
             if (dm->r[3*m+d] > dm->dim[d]){
                 dm->r[3*m+d] = 2*dm->dim[d] - dm->r[3*m+d];
                 dm->oldr[3*m+d] = 2*dm->dim[d] - dm->oldr[3*m+d];
-            } else if (dm->r[3*m+d] < 0) {
-                dm->r[3*m+d] = dm->dim[d];
-                dm->oldr[3*m+d] = dm->dim[d];        
+            }
+            if (dm->r[3*m+d] < 0) {
+                dm->r[3*m+d] *= -1;
+                dm->oldr[3*m+d] *= -1;
             }
         }
     }
