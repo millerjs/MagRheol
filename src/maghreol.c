@@ -19,7 +19,7 @@ int step = 0;
 
 
 /* Parameters */
-int     npart                =  256;
+int     npart                =  1024;
 double  maxt                 =  1000.;
 int     checkpoint_interval  =  1000;
 double  L                    =  50;
@@ -27,17 +27,18 @@ double  L                    =  50;
 void equillibrate(domain *dm)
 {
     LOG("Starting equilibration.");
-    for (int i = 0; i < 1000; i++){
+    int NEQUIL = 100;
+    for (int i = 0; i < NEQUIL; i++){
         update_positions(dm, 0, dm->npart);
         update_forces_velocities(dm, 0, dm->npart);
     }
-    LOG("Resampling velocities.");
-    for (int k = 0; k < dm->npart; k++){
-        for (int j = 0; j < 3; j++){
-            dm->p[k].v[j] = dm->v0[j] + randomd(-.1, .1);
-        }
-    }
-    LOG("Equilibration complete.");
+    LOG("Equilibration steps %d complete", NEQUIL);
+    
+    for (int i = 0; i < dm->npart; i++)
+        for (int j = 0; j < 3; j++)
+            dm->p[i].v[j] = dm->v0[j] + randomd(-1., 1.);
+
+    LOG("Velocities re-sampled.");
 }
 
 void *evolveThreaded(void *args)
@@ -51,10 +52,10 @@ void *evolveThreaded(void *args)
     int n = dm->npart;
 
 
+    int m = n/thread->pool->size;
+    int a = thread->id*m;
+    
     while (t < maxt){
-
-        int m = n/thread->pool->size;
-        int a = thread->id*m;
 
         /* Update positions and regroup */
         update_positions(dm, a, a+m);
@@ -66,7 +67,6 @@ void *evolveThreaded(void *args)
 
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
-            LOG("Control thread at === %f === ", t);
             if (!(step % checkpoint_interval))
                 print_checkpoint("checkpoints", dm);
             t += dt;
@@ -84,9 +84,9 @@ void setup(domain *dm)
 {
     /* Establish the domain */
     domain_populate(dm, npart);
-    /* domain_set_v0(dm, -1.0, 0, 0); */
-    /* domain_set_boundary(dm, 0, PERIODIC); */
-    dt = .001;
+    domain_set_v0(dm, -10.0, 0, 0);
+    domain_set_boundary(dm, 0, PERIODIC);
+    dt = 1e-5;
 }
 
 int main(int argc, char *argv[])
