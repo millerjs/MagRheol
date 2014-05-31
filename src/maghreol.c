@@ -14,14 +14,7 @@
 #include "libjosh/threadpool.h"
 #include "particles.h"
 #include "domain.h"
-
-int step = 0;
-
-/* Parameters */
-int     npart                =  216*2;
-double  maxt                 =  .2;
-int     checkpoint_interval  =  1;
-double  L                    =  21.8;
+#include "params.h"
 
 void equillibrate(domain *dm)
 {
@@ -49,24 +42,30 @@ void *evolveThreaded(void *args)
     
     while (t < maxt){
 
-        pthread_barrier_wait(&thread->pool->barrier1);
+        /* Update positions and regroup */
+        update_positions(dm, a, a+m);
+        pthread_barrier_wait(&thread->pool->barrier2);
 
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
+            double *temp = dm->oldr;
+            dm->oldr = dm->r;
+            dm->r = dm->temp;
+            dm->temp = temp;
+
+            for (int m = 0; m < dm->npart; m++)
+                check_boundary(dm, m);
+
             if (!(step % checkpoint_interval))
                 print_checkpoint("checkpoints", dm);
             t += dt;
             step += 1;
         }
 
-        /* Update positions and regroup */
-        update_positions(dm, a, a+m);
-        pthread_barrier_wait(&thread->pool->barrier2);
+        pthread_barrier_wait(&thread->pool->barrier1);
 
     }
     
-    print_checkpoint("checkpoints", dm);
-
     return NULL;
 }
 
@@ -78,18 +77,22 @@ void setup(domain *dm)
     domain_set_boundary(dm, 0, PERIODIC);
     domain_set_boundary(dm, 1, REFLECTING);
     domain_set_boundary(dm, 2, REFLECTING);
-
 }
 
 int main(int argc, char *argv[])
 {
-
     /* Open a log file */
     open_log_file("magrheol.log");
-    domain *dm = domain_new(2*L, L, L);
+
+    if(argc < 2)
+        LOG("No config specified. Running with defaults.");
+    else
+        parse_config(argv[1]);
+
+    domain *dm = domain_new(X,Y,Z);
     setup(dm);
 
-    threadpool_t *pool = threadpool_create(&evolveThreaded, 1);
+    threadpool_t *pool = threadpool_create(&evolveThreaded, 16);
     pool->dm = dm;
 
     equillibrate(dm);
@@ -97,6 +100,9 @@ int main(int argc, char *argv[])
 
     /* Clean up */
     threadpool_join(pool);
+
+    print_checkpoint("checkpoints", dm);
+
     close_log_file();
     
     return 0;

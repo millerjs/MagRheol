@@ -34,9 +34,6 @@ typedef struct{
     double *v;
 } domain;
 
-extern double t;
-extern double dt;
-
 domain *domain_new(double x, double y, double z);
 int domain_populate(domain *d, int n);
 int domain_set_v0(domain *dm, double x, double y, double z);
@@ -45,5 +42,6 @@ int update_positions(domain *dm, int a, int b);
 int print_checkpoint(char* basepath, domain *dm);
 double dist(domain *dm, int m, int i, vec r);
 double randomd(double min, double max);
+void check_boundary(domain *dm, int m);
 
 #endif 

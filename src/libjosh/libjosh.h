@@ -115,6 +115,8 @@ int close_log_file();
         INFO_DUMP(__red__ "error" __nrm__);     \
         fprintf(logfile, fmt, ##__VA_ARGS__);    \
         fprintf(logfile, "\n");                  \
+        fprintf(stderr, fmt, ##__VA_ARGS__);    \
+        fprintf(stderr, "\n");                  \
         exit(EXIT_FAILURE);                     \
     } while(0)
 

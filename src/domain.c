@@ -12,9 +12,7 @@
 
 #include "domain.h"
 #include "libjosh/libjosh.h"
-
-double t = 0;
-double dt = .01;
+#include "params.h"
 
 domain *domain_new(double x, double y, double z)
 {
@@ -68,7 +66,7 @@ int domain_populate(domain *dm, int n)
 
                 dt = .001;
                 for (int d = 0; d < 3; d ++){
-                    dm->v[3*m+d] = dm->v0[d] + randomd(-50, 60) - 100*(d==0);
+                    dm->v[3*m+d] = dm->v0[d] + randomd(-50, 60) - 500*(d==0);
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
 
@@ -115,15 +113,12 @@ void force_Drag(domain *dm, int m)
 
 void force_Wall(domain *dm, int m)
 {
-    double r;
-    for (int d = 0; d < 3; d++){
-        r = dm->r[3*m+d] < dm->dim[d]/2 ? dm->r[3*m+d] : dm->dim[d]- dm->r[3*m+d];
-        r = 1.0;
-        double t6 = pow(SIGMA/r, 6);
-        double t12 = t6*t6;
-        double f = 4*EPS*(12/r*t12 - 6/r*t6);
-        for (int d = 0; d < 3; d++)
-            dm->F[3*m+d] += MAX(MIN(f, 1e3), -1e3);
+    for (int d = 0; d < 3; d ++){
+
+        /* The particle is 'touching' the wall */
+        if (dm->r[3*m+d] < SIGMA || dm->r[3*m+d] > dm->dim[d]-SIGMA){
+            dm->v[3*m] = 0;
+        }
     }
 }
 
@@ -183,16 +178,8 @@ int update_positions(domain *dm, int a, int b)
             dm->v[3*m+d] = dm->temp[3*m+d] - dm->oldr[3*m+d]/(2*dt);
         }
     }
-    double *temp = dm->oldr;
-    dm->oldr = dm->r;
-    dm->r = dm->temp;
-    dm->temp = temp;
-    for (int m = a; m < b; m++)
-        check_boundary(dm, m);
     return 0;
 }
-
-
 
 int checkpoint_count = 0;
 int print_checkpoint(char *basepath, domain *dm){

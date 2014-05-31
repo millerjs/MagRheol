@@ -3,12 +3,13 @@ BIN = ./magrheol
 
 CC = gcc
 
-CFLAGS = -ggdb -g -Wall -fpic  -MMD -MP -DDEBUG -O3 -lm -std=gnu99 -Werror
+CFLAGS = -ggdb -g -Wall -fpic  -MMD -MP -DDEBUG -O3 -lm -std=gnu99  -Werror
 LDLIBS = -lm -lrt -pthread -Llibjosh/ -ljosh
 
 OBJS = maghreol.o \
 	particles.o \
-	domain.o
+	domain.o \
+	params.o
 
 all: $(BIN)
 
