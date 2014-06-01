@@ -25,18 +25,6 @@ int particle_new(particle *p)
     return 0;
 }
 
-
-double norm(vec r)
-{
-    double sum = 0;
-    for(int i = 0; i < 3; i++)
-        sum += r[i]*r[i];
-    sum = sqrt(sum);
-    for(int i = 0; i < 3; i++)
-        r[i] /= sum;
-    return sum;    
-}
-
 void add(vec v1, vec v2, vec res)
 {
     for (int i = 0; i < 3; i++){

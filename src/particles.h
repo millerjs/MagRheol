@@ -26,7 +26,6 @@ typedef struct{
 
     
 int particle_new(particle *p);
-double norm(vec r);
 void add(vec v1, vec v2, vec res);
 void scale(vec v, double a);
 void print_vec(vec v);

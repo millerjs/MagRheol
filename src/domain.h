@@ -28,10 +28,15 @@ typedef struct{
     double v0[3];
     int npart;
     double *F;
+    double *T;
     double *r;
     double *oldr;
     double *temp;
     double *v;
+    double *mu;
+    double *tempmu;
+    double *oldmu;
+    unsigned char *magnetic;
 } domain;
 
 domain *domain_new(double x, double y, double z);
@@ -43,5 +48,8 @@ int print_checkpoint(char* basepath, domain *dm);
 double dist(domain *dm, int m, int i, vec r);
 double randomd(double min, double max);
 void check_boundary(domain *dm, int m);
+int update_angles(domain *dm, int a, int b);
+void normalize(double *a, double m);
 
 #endif 
+

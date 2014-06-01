@@ -39,15 +39,36 @@ double randomd(double min, double max)
     return (rand()/(double)RAND_MAX)*max + min;
 }
 
+double norm(double *a)
+{
+    double norm = 0;
+    for (int d = 0; d < 3; d++){
+        norm += a[d]*a[d];
+    }
+    return sqrt(norm);
+}
+
+void normalize(double *a, double m)
+{
+    double n = norm(a);
+    for (int d = 0; d < 3; d++)
+        a[d] *= m/n;
+}
+
 int domain_populate(domain *dm, int n)
 {
     dm->npart = n;
     LOG("Populating domain [%p] with [%d] particles", dm, n);
     ERROR_IF(!(dm->r = malloc(n*VECSIZE)), "Unable to allocate positions");
     ERROR_IF(!(dm->oldr = malloc(n*VECSIZE)), "Unable to allocate old positions");
+    ERROR_IF(!(dm->oldmu = malloc(n*VECSIZE)), "Unable to allocate old positions");
     ERROR_IF(!(dm->v = malloc(n*VECSIZE)), "Unable to allocate old positions");
     ERROR_IF(!(dm->F = malloc(n*VECSIZE)), "Unable to allocate old positions");
+    ERROR_IF(!(dm->T = malloc(n*VECSIZE)), "Unable to allocate old positions");
     ERROR_IF(!(dm->temp = malloc(n*VECSIZE)), "Unable to allocate buffer space");
+    ERROR_IF(!(dm->tempmu = malloc(n*VECSIZE)), "Unable to allocate buffer space");
+    ERROR_IF(!(dm->mu = malloc(n*VECSIZE)), "Unable to allocate buffer space");
+    ERROR_IF(!(dm->magnetic = malloc(n*sizeof(unsigned char))), "Unable to allocate buffer space");
 
     double r = pow(dm->npart, 1/3.);
     vec cell = {dm->dim[0]/r, dm->dim[1]/r, dm->dim[2]/r};
@@ -60,13 +81,26 @@ int domain_populate(domain *dm, int n)
         for (int j = 0; j < ceil(r); j++){
             for (int k = 0; k < ceil(r); k++){
 
+                if (randomd(0., 1.) < ratio){
+
+                    dm->magnetic[m] = 1;
+                    for (int d = 0; d < 3; d++)
+                        dm->mu[3*m+d] = randomd(-1., 2.);
+                    normalize(dm->mu+3*m, MU);
+
+                } else {
+                    for (int d = 0; d < 3; d++)
+                        dm->mu[3*m+d] = 0.;
+                }
+
                 dm->oldr[3*m+0] = (i+.5)*cell[0];
                 dm->oldr[3*m+1] = (j+.5)*cell[1];
                 dm->oldr[3*m+2] = (k+.5)*cell[2];
 
                 dt = .001;
                 for (int d = 0; d < 3; d ++){
-                    dm->v[3*m+d] = dm->v0[d] + randomd(-50, 60) - 500*(d==0);
+                    dm->v[3*m+d] = randomd(-50, 60);
+                    /* dm->v[3*m+d] -= 500*(d==0); */
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
 
@@ -101,6 +135,44 @@ double dist(domain *dm, int m, int n, vec r)
     return sqrt(temp);
 }
 
+double dot(double *a, double *b)
+{
+    double res = 0;
+    for (int d = 0; d < 3; d++)
+        res += a[d]*b[d];
+    return res;
+}
+
+void cross(double *a, double *b, vec c)
+{
+    c[0] = a[2]*b[3] - a[3]*b[2];
+    c[1] = a[3]*b[1] - a[1]*b[3];
+    c[2] = a[1]*b[2] - a[2]*b[1];
+}
+
+void force_DipoleDipole(domain *dm, int m)
+{
+    if (!(dm->mu[3*m] || dm->mu[3*m+1] || dm->mu[3*m+2]))
+        return;
+    vec r = {0,0,0};
+    double f;
+    for (int j = 0; j < dm->npart; j++){
+        double rmj = dist(dm, m, j, r);
+        for (int d = 0; d < 3; d ++){
+            if (j!=m){
+                double mj = dot(dm->mu+3*m, dm->mu+3*j);
+                double mr = dot(dm->mu+3*m, r);
+                double jr = dot(dm->mu+3*j, r);
+                f = mj*r[d]/rmj;
+                f -= 5*mr*jr*r[d]/rmj;
+                f += (mr*dm->mu[3*j+d] + jr*dm->mu[3*m+d])/rmj;
+                f /= pow(rmj,4);
+                dm->F[3*m+j] += MAX(MIN(f, 1e3), -1e3);
+            }
+        }
+    }
+}
+
 void force_Drag(domain *dm, int m)
 {
     for (int j = 1; j < 3; j++){
@@ -113,11 +185,11 @@ void force_Drag(domain *dm, int m)
 
 void force_Wall(domain *dm, int m)
 {
-    for (int d = 0; d < 3; d ++){
-
+    for (int d = 1; d < 3; d ++){
         /* The particle is 'touching' the wall */
-        if (dm->r[3*m+d] < SIGMA || dm->r[3*m+d] > dm->dim[d]-SIGMA){
+        if (dm->r[3*m+d] < SIGMA/2 || dm->r[3*m+d] > dm->dim[d]-SIGMA/2){
             dm->v[3*m] = 0;
+            dm->r[3*m] = dm->oldr[3*m];
         }
     }
 }
@@ -142,6 +214,7 @@ int calculate_force(domain *dm, int m)
     for (int d = 0; d < 3; d++)
         dm->F[3*m+d] = 0;
     force_LJ(dm, m);
+    force_DipoleDipole(dm, m);
     return 0;
 }
 
@@ -154,7 +227,8 @@ void check_boundary(domain *dm, int m)
                 dm->oldr[3*m+d] -= dm->dim[d];
             } else if (dm->r[3*m+d] < 0) {
                 dm->r[3*m+d] += dm->dim[d];
-                dm->oldr[3*m+d] += dm->dim[d];        
+                dm->oldr[3*m+d] += dm->dim[d];
+                
             }
         } else if (dm->boundary[d] == REFLECTING) {
             if (dm->r[3*m+d] > dm->dim[d]){
@@ -168,6 +242,62 @@ void check_boundary(domain *dm, int m)
         }
     }
 }
+
+void torque_DipoleDipole(domain *dm, int m)
+{
+    if (!(dm->mu[3*m] || dm->mu[3*m+1] || dm->mu[3*m+2]))
+        return;
+
+    vec r, mxj, mxr;
+    double t;
+
+    for (int j = 0; j < dm->npart; j++){
+        if (j!=m){
+            double rmj = dist(dm, m, j, r);
+            cross(dm->mu+3*m, dm->mu+3*j, mxj);
+            cross(dm->mu+3*m, r, mxr);
+            double jr = dot(dm->mu+3*j, r);
+
+            for (int d = 0; d < 3; d ++){
+                t = mxj[d];
+                t -= 3/(rmj*rmj)*jr*mxr[d];
+                dm->T[3*m+d] += MAX(MIN(t, 1e3), -1e3);
+            }
+        }
+    }
+}
+
+void torque_H(domain *dm, int m)
+{
+    vec M = {0, -1, 0};
+    cross(dm->mu+3*m, M, dm->T+3*m);
+}
+
+void calculate_torque(domain *dm, int m)
+{
+    for (int d = 0; d < 3; d++)
+        dm->T[3*m+d] = 0;
+    torque_DipoleDipole(dm, m);
+    torque_H(dm, m);
+    return;
+}
+
+int update_angles(domain *dm, int a, int b)
+{
+    for (int m = a; m < b; m++){
+        if (dm->magnetic[m]){
+                calculate_torque(dm, m);
+                for (int d = 0; d < 3; d++){
+                    dm->tempmu[3*m+d] = 2*dm->mu[3*m+d] 
+                        - dm->oldmu[3*m+d] 
+                        + dm->T[3*m+d]*10*dt*dt;
+                    fprintf(stderr, "%f\n", - dm->oldmu[3*m+d] + dm->T[3*m+d]*10*dt*dt);
+                }
+        }
+    }
+    return 0;
+}
+
 
 int update_positions(domain *dm, int a, int b)
 {
@@ -188,11 +318,15 @@ int print_checkpoint(char *basepath, domain *dm){
     FILE *chkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
     for (int m = 0; m < dm->npart; m++){
-        for (int d = 0; d < 3; d++)
-            fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
-        for (int d = 0; d < 3; d++)
-            fprintf(chkpnt, "%f\t", dm->F[3*m+d]);
-        fprintf(chkpnt, "\n");
+        /* if (1){ */
+        if (dm->magnetic[m]){
+            for (int d = 0; d < 3; d++)
+                fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
+            for (int d = 0; d < 3; d++)
+                fprintf(chkpnt, "%f\t", dm->F[3*m+d]);
+            fprintf(chkpnt, "%f\t", dm->mu[3*m]);
+            fprintf(chkpnt, "\n");
+        }
     }
     LOG("Wrote to checkpoint file [%s]\t%f", path, t);
     fclose(chkpnt);

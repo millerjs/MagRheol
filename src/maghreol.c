@@ -15,10 +15,10 @@
 #include "particles.h"
 #include "domain.h"
 #include "params.h"
+#include "math.h"
 
 void equillibrate(domain *dm)
 {
-
     LOG("Starting equilibration.");
     int NEQUIL = 0;
     for (int i = 0; i < NEQUIL; i++){
@@ -39,27 +39,59 @@ void *evolveThreaded(void *args)
 
     int m = n/thread->pool->size;
     int a = thread->id*m;
-    
+    int b = a + m;
+    if (thread->id == thread->pool->size -1)
+        b = n;
+
     while (t < maxt){
 
         /* Update positions and regroup */
-        update_positions(dm, a, a+m);
+        update_positions(dm, a, b);
+        update_angles(dm, a, b);
         pthread_barrier_wait(&thread->pool->barrier2);
 
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
+
             double *temp = dm->oldr;
             dm->oldr = dm->r;
             dm->r = dm->temp;
             dm->temp = temp;
 
-            for (int m = 0; m < dm->npart; m++)
-                check_boundary(dm, m);
+            temp = dm->oldmu;
+            dm->oldmu = dm->mu;
+            dm->mu = dm->temp;
+            dm->temp = temp;
+            
+            vec mu = {0,0,0};
+            vec v = {0,0,0};
 
-            if (!(step % checkpoint_interval))
+            int nmagnetic = 0;
+            for (int m = 0; m < dm->npart; m ++){
+                check_boundary(dm, m);
+                normalize(dm->mu+3*m, MU);
+                if (dm->magnetic[m]){
+                    nmagnetic ++;
+                    for (int d = 0; d < 3; d++){
+                        v[d] += dm->v[3*m+d];
+                        mu[d] += dm->mu[3*m+d];
+                    }                    
+                }
+            }
+
+            if (!(step % checkpoint_interval)){
                 print_checkpoint("checkpoints", dm);
+                fprintf(stdout, "%04d  %5.3f\t%5.3f  %5.3f  %5.3f \t %5.3f  %5.3f  %5.3f\n",
+                        step, t, 
+                        mu[0]/nmagnetic, mu[1]/nmagnetic, mu[2]/nmagnetic,
+                        v[0]/dm->npart, v[1]/dm->npart, v[2]/dm->npart);
+            }
+            
             t += dt;
             step += 1;
+        }
+
+        if (thread->id == thread->pool->size-1){
         }
 
         pthread_barrier_wait(&thread->pool->barrier1);
