@@ -14,6 +14,8 @@
 #include "libjosh/libjosh.h"
 #include "params.h"
 
+#define MAXF 1e2
+
 domain *domain_new(double x, double y, double z)
 {
     srand(time(NULL));
@@ -84,9 +86,14 @@ int domain_populate(domain *dm, int n)
                 if (randomd(0., 1.) < ratio){
 
                     dm->magnetic[m] = 1;
-                    for (int d = 0; d < 3; d++)
+                    for (int d = 0; d < 3; d++){
                         dm->mu[3*m+d] = randomd(-1., 2.);
+                    }
+                    
                     normalize(dm->mu+3*m, MU);
+                    for (int d = 0; d < 3; d++){
+                        dm->oldmu[3*m+d] = dm->mu[3*m+d];
+                    }
 
                 } else {
                     for (int d = 0; d < 3; d++)
@@ -97,9 +104,9 @@ int domain_populate(domain *dm, int n)
                 dm->oldr[3*m+1] = (j+.5)*cell[1];
                 dm->oldr[3*m+2] = (k+.5)*cell[2];
 
-                dt = .001;
                 for (int d = 0; d < 3; d ++){
-                    dm->v[3*m+d] = randomd(-50, 60);
+                    /* dm->v[3*m+d] = randomd(-50, 60); */
+                    dm->v[3*m+d] = 0;
                     /* dm->v[3*m+d] -= 500*(d==0); */
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
@@ -167,7 +174,7 @@ void force_DipoleDipole(domain *dm, int m)
                 f -= 5*mr*jr*r[d]/rmj;
                 f += (mr*dm->mu[3*j+d] + jr*dm->mu[3*m+d])/rmj;
                 f /= pow(rmj,4);
-                dm->F[3*m+j] += MAX(MIN(f, 1e3), -1e3);
+                dm->F[3*m+j] += MAX(MIN(f, MAXF), -MAXF);
             }
         }
     }
@@ -204,7 +211,7 @@ void force_LJ(domain *dm, int m)
             double t12 = t6*t6;
             double f = 4*EPS*(12/d*t12 - 6/d*t6);
             for (int d = 0; d < 3; d++)
-                dm->F[3*m+d] += MAX(MIN(res[d]*f, 1e3), -1e3);
+                dm->F[3*m+d] += MAX(MIN(res[d]*f, MAXF), -MAXF);
         }
     }
 }
@@ -261,7 +268,7 @@ void torque_DipoleDipole(domain *dm, int m)
             for (int d = 0; d < 3; d ++){
                 t = mxj[d];
                 t -= 3/(rmj*rmj)*jr*mxr[d];
-                dm->T[3*m+d] += MAX(MIN(t, 1e3), -1e3);
+                dm->T[3*m+d] += MAX(MIN(t, 1e10), -1e10);
             }
         }
     }
@@ -269,8 +276,11 @@ void torque_DipoleDipole(domain *dm, int m)
 
 void torque_H(domain *dm, int m)
 {
-    vec M = {0, -1, 0};
-    cross(dm->mu+3*m, M, dm->T+3*m);
+    vec M = {0, -H, 0};
+    vec t = {0,0,0};
+    cross(dm->mu+3*m, M, t);
+    for (int d = 0; d < 3; d++)
+        dm->T[3*m+d] += t[d];
 }
 
 void calculate_torque(domain *dm, int m)
@@ -286,13 +296,14 @@ int update_angles(domain *dm, int a, int b)
 {
     for (int m = a; m < b; m++){
         if (dm->magnetic[m]){
-                calculate_torque(dm, m);
-                for (int d = 0; d < 3; d++){
-                    dm->tempmu[3*m+d] = 2*dm->mu[3*m+d] 
-                        - dm->oldmu[3*m+d] 
-                        + dm->T[3*m+d]*10*dt*dt;
-                    fprintf(stderr, "%f\n", - dm->oldmu[3*m+d] + dm->T[3*m+d]*10*dt*dt);
-                }
+            calculate_torque(dm, m);
+            for (int d = 0; d < 3; d++){
+                /* dm->tempmu[3*m+d] = dm->mu[3*m+d]; */
+                dm->tempmu[3*m+d] = 2*dm->mu[3*m+d] - dm->oldmu[3*m+d]
+                    - dm->T[3*m+d]*10*dt*dt;
+                /* fprintf(stderr, "%f\n", dm->T[3*m+d]*10*dt*dt); */
+            }
+            normalize(dm->tempmu+3*m, MU);
         }
     }
     return 0;
@@ -323,8 +334,8 @@ int print_checkpoint(char *basepath, domain *dm){
             for (int d = 0; d < 3; d++)
                 fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
             for (int d = 0; d < 3; d++)
-                fprintf(chkpnt, "%f\t", dm->F[3*m+d]);
-            fprintf(chkpnt, "%f\t", dm->mu[3*m]);
+                fprintf(chkpnt, "%f\t", dm->mu[3*m+d]);
+            fprintf(chkpnt, "%d\t", dm->magnetic[m]);
             fprintf(chkpnt, "\n");
         }
     }

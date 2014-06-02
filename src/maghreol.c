@@ -42,6 +42,7 @@ void *evolveThreaded(void *args)
     int b = a + m;
     if (thread->id == thread->pool->size -1)
         b = n;
+    double *temp;
 
     while (t < maxt){
 
@@ -53,15 +54,15 @@ void *evolveThreaded(void *args)
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
 
-            double *temp = dm->oldr;
+            temp = dm->oldr;
             dm->oldr = dm->r;
             dm->r = dm->temp;
             dm->temp = temp;
 
             temp = dm->oldmu;
             dm->oldmu = dm->mu;
-            dm->mu = dm->temp;
-            dm->temp = temp;
+            dm->mu = dm->tempmu;
+            dm->tempmu = temp;
             
             vec mu = {0,0,0};
             vec v = {0,0,0};
@@ -69,7 +70,6 @@ void *evolveThreaded(void *args)
             int nmagnetic = 0;
             for (int m = 0; m < dm->npart; m ++){
                 check_boundary(dm, m);
-                normalize(dm->mu+3*m, MU);
                 if (dm->magnetic[m]){
                     nmagnetic ++;
                     for (int d = 0; d < 3; d++){
@@ -82,7 +82,7 @@ void *evolveThreaded(void *args)
             if (!(step % checkpoint_interval)){
                 print_checkpoint("checkpoints", dm);
                 fprintf(stdout, "%04d  %5.3f\t%5.3f  %5.3f  %5.3f \t %5.3f  %5.3f  %5.3f\n",
-                        step, t, 
+                        step/checkpoint_interval, t, 
                         mu[0]/nmagnetic, mu[1]/nmagnetic, mu[2]/nmagnetic,
                         v[0]/dm->npart, v[1]/dm->npart, v[2]/dm->npart);
             }
@@ -109,6 +109,8 @@ void setup(domain *dm)
     domain_set_boundary(dm, 0, PERIODIC);
     domain_set_boundary(dm, 1, REFLECTING);
     domain_set_boundary(dm, 2, REFLECTING);
+    domain_set_boundary(dm, 1, PERIODIC);
+    domain_set_boundary(dm, 2, PERIODIC);
 }
 
 int main(int argc, char *argv[])
@@ -127,7 +129,8 @@ int main(int argc, char *argv[])
     threadpool_t *pool = threadpool_create(&evolveThreaded, 16);
     pool->dm = dm;
 
-    equillibrate(dm);
+    print_checkpoint("checkpoints", dm);
+    step ++;
     threadpool_start(pool);
 
     /* Clean up */
