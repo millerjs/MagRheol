@@ -176,7 +176,8 @@ void force_DipoleDipole(domain *dm, int m)
                 f -= 5*mr*jr*r[d]/pow(rmj,3);
                 f += (mr*dm->mu[3*j+d] + jr*dm->mu[3*m+d])/rmj;
                 f /= pow(rmj,4);
-                dm->F[3*m+j] += f;
+                f *= 1e8;
+                dm->F[3*m+d] += f;
             }
         }
     }
@@ -245,7 +246,7 @@ int calculate_force(domain *dm, int m)
     for (int d = 0; d < 3; d++)
         dm->F[3*m+d] = 0;
     force_LJ(dm, m);
-    /* force_DipoleDipole(dm, m); */
+    force_DipoleDipole(dm, m);
     return 0;
 }
 
@@ -362,8 +363,8 @@ int print_checkpoint(char *basepath, domain *dm){
     FILE *chkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
     for (int m = 0; m < dm->npart; m++){
-        if (1){
-        /* if (dm->magnetic[m]){ */
+        /* if (1){ */
+        if (dm->magnetic[m]){
             for (int d = 0; d < 3; d++)
                 fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
             for (int d = 0; d < 3; d++)
