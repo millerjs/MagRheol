@@ -26,6 +26,7 @@ typedef struct{
     double v0[3];
     int npart;
     double *F;
+    double *E;
     double *T;
     double *r;
     double *oldr;

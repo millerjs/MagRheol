@@ -14,7 +14,6 @@
 #include "libjosh/libjosh.h"
 #include "params.h"
 
-
 domain *domain_new(double x, double y, double z)
 {
     srand(time(NULL));
@@ -69,7 +68,9 @@ int domain_populate(domain *dm, int n)
     ERROR_IF(!(dm->temp = malloc(n*VECSIZE)), "Unable to allocate buffer space");
     ERROR_IF(!(dm->tempmu = malloc(n*VECSIZE)), "Unable to allocate buffer space");
     ERROR_IF(!(dm->mu = malloc(n*VECSIZE)), "Unable to allocate buffer space");
-    ERROR_IF(!(dm->magnetic = malloc(n*sizeof(unsigned char))), "Unable to allocate buffer space");
+    ERROR_IF(!(dm->E = malloc(n*sizeof(double))), "Unable to allocate buffer space: E");
+    ERROR_IF(!(dm->magnetic = malloc(n*sizeof(unsigned char))), 
+             "Unable to allocate buffer space: mag");
 
     double r = pow(dm->npart, 1/3.);
     vec cell = {dm->dim[0]/r, dm->dim[1]/r, dm->dim[2]/r};
@@ -86,8 +87,8 @@ int domain_populate(domain *dm, int n)
 
                     dm->magnetic[m] = 1;
                     for (int d = 0; d < 3; d++){
-                        /* dm->mu[3*m+d] = randomd(-1., 2.); */
-                        dm->mu[3*m+d] = -(d==2);
+                        dm->mu[3*m+d] = randomd(-1., 2.);
+                        /* dm->mu[3*m+d] = -(d==2); */
                     }
                     
                     normalize(dm->mu+3*m, MU);
@@ -241,15 +242,6 @@ void force_drag(domain *dm, int m)
         dm->F[3*m+d] -= dm->v[3*m+d]*.9;
 }
 
-int calculate_force(domain *dm, int m)
-{
-    for (int d = 0; d < 3; d++)
-        dm->F[3*m+d] = 0;
-    force_LJ(dm, m);
-    force_DipoleDipole(dm, m);
-    return 0;
-}
-
 void check_boundary(domain *dm, int m)
 {
     for (int d = 0; d < 3; d ++){
@@ -293,6 +285,7 @@ void torque_DipoleDipole(domain *dm, int m)
             for (int d = 0; d < 3; d ++){
                 t = mxj[d];
                 t -= 3/(rmj*rmj)*jr*mxr[d];
+                t *= 1e2;
                 dm->T[3*m+d] += MAX(MIN(t, 1e10), -1e10);
             }
         }
@@ -305,23 +298,25 @@ void torque_H(domain *dm, int m)
     vec t = {0,0,0};
     cross(dm->mu+3*m, M, t);
     for (int d = 0; d < 3; d++)
-        dm->T[3*m+d] += t[d];
-}
-
-void torque_dissipative(domain *dm, int m)
-{
-    for (int d = 0; d < 3; d++)
-        dm->T[3*m+d] = (dm->mu[3*m+d]-dm->oldmu[3*m+d])*.9;
+        dm->T[3*m+d] += t[d]*1e2;
 }
 
 void calculate_torque(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
         dm->T[3*m+d] = 0;
-    /* torque_DipoleDipole(dm, m); */
-    /* torque_dissipative(dm, m); */
-    /* torque_H(dm, m); */
+    torque_DipoleDipole(dm, m);
+    torque_H(dm, m);
     return;
+}
+
+int calculate_force(domain *dm, int m)
+{
+    for (int d = 0; d < 3; d++)
+        dm->F[3*m+d] = 0;
+    force_LJ(dm, m);
+    force_DipoleDipole(dm, m);
+    return 0;
 }
 
 int update_angles(domain *dm, int a, int b)
@@ -330,11 +325,8 @@ int update_angles(domain *dm, int a, int b)
         if (dm->magnetic[m]){
             calculate_torque(dm, m);
             for (int d = 0; d < 3; d++){
-                /* dm->tempmu[3*m+d] = dm->mu[3*m+d]; */
                 dm->tempmu[3*m+d] = 2*dm->mu[3*m+d] - dm->oldmu[3*m+d]
                     + dm->T[3*m+d]*10*dt*dt;
-                dm->tempmu[3*m+d] = 2*dm->mu[3*m+d] + dm->T[3*m+d]*10*dt*dt;
-                /* fprintf(stderr, "%f\n", dm->T[3*m+d]*10*dt*dt); */
             }
             normalize(dm->tempmu+3*m, MU);
         }

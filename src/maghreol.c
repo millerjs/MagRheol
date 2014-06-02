@@ -17,16 +17,6 @@
 #include "params.h"
 #include "math.h"
 
-void equillibrate(domain *dm)
-{
-    LOG("Starting equilibration.");
-    int NEQUIL = 0;
-    for (int i = 0; i < NEQUIL; i++){
-        update_positions(dm, 0, dm->npart);
-    }
-    LOG("Equilibration steps %d complete", NEQUIL);
-}
-
 void *evolveThreaded(void *args)
 {
     thread_t *thread = (thread_t*) args;
@@ -108,11 +98,9 @@ void setup(domain *dm)
     domain_set_boundary(dm, 0, PERIODIC);
     domain_set_boundary(dm, 1, PERIODIC);
     domain_set_boundary(dm, 2, PERIODIC);
-    /* 
-     * domain_set_boundary(dm, 0, REFLECTING);
-     * domain_set_boundary(dm, 1, REFLECTING);
-     * domain_set_boundary(dm, 2, REFLECTING);
-     */
+    /* domain_set_boundary(dm, 0, REFLECTING); */
+    /* domain_set_boundary(dm, 1, REFLECTING); */
+    /* domain_set_boundary(dm, 2, REFLECTING); */
 
 }
 
