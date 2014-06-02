@@ -13,8 +13,6 @@
 
 #include "particles.h"
 
-#define EPS .05 /* kcal/mol */
-#define SIGMA 3.4 /* kcal/mol */
 
 typedef enum{
     REFLECTING,

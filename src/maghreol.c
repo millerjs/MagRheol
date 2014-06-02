@@ -81,10 +81,9 @@ void *evolveThreaded(void *args)
 
             if (!(step % checkpoint_interval)){
                 print_checkpoint("checkpoints", dm);
-                fprintf(stdout, "%04d  %5.3f\t%5.3f  %5.3f  %5.3f \t %5.3f  %5.3f  %5.3f\n",
+                fprintf(stdout, "%04d  %5.3f\t%5.3f  %5.3f  %5.3f\n",
                         step/checkpoint_interval, t, 
-                        mu[0]/nmagnetic, mu[1]/nmagnetic, mu[2]/nmagnetic,
-                        v[0]/dm->npart, v[1]/dm->npart, v[2]/dm->npart);
+                        mu[0]/nmagnetic, mu[1]/nmagnetic, mu[2]/nmagnetic);
             }
             
             t += dt;
@@ -107,10 +106,14 @@ void setup(domain *dm)
     domain_populate(dm, npart);
     domain_set_v0(dm, -10, 0, 0);
     domain_set_boundary(dm, 0, PERIODIC);
-    domain_set_boundary(dm, 1, REFLECTING);
-    domain_set_boundary(dm, 2, REFLECTING);
     domain_set_boundary(dm, 1, PERIODIC);
     domain_set_boundary(dm, 2, PERIODIC);
+    /* 
+     * domain_set_boundary(dm, 0, REFLECTING);
+     * domain_set_boundary(dm, 1, REFLECTING);
+     * domain_set_boundary(dm, 2, REFLECTING);
+     */
+
 }
 
 int main(int argc, char *argv[])
