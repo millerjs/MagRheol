@@ -14,7 +14,7 @@
 #include "libjosh/libjosh.h"
 #include "params.h"
 
-#define MAXF 1e2
+#define FMAX 1e2
 
 domain *domain_new(double x, double y, double z)
 {
@@ -105,9 +105,7 @@ int domain_populate(domain *dm, int n)
                 dm->oldr[3*m+2] = (k+.5)*cell[2];
 
                 for (int d = 0; d < 3; d ++){
-                    /* dm->v[3*m+d] = randomd(-50, 60); */
-                    dm->v[3*m+d] = 0;
-                    /* dm->v[3*m+d] -= 500*(d==0); */
+                    dm->v[3*m+d] = dm->v0[d];
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
 
@@ -182,11 +180,8 @@ void force_DipoleDipole(domain *dm, int m)
 
 void force_Drag(domain *dm, int m)
 {
-    for (int j = 1; j < 3; j++){
-        if (dm->r[3*m+j] < SIGMA || dm->r[3*+j] > dm->dim[j] - SIGMA){
-            dm->v[3*m] = 0;
-            dm->F[3*m] = 0;
-        }
+    for (int d = 1; d < 3; d++){
+        dm->F[3*m+d] += 6*3.14159*1.5e-4*RADIUS*dm->v[3*m+d];
     }
 }
 
@@ -206,7 +201,7 @@ void force_LJ(domain *dm, int m)
     for (int i = 0; i < dm->npart; i++){
         if (i!=m){
             vec res;
-            double d = MAX(dist(dm, m, i, res), 1e-4);
+            double d = dist(dm, m, i, res);
             double t6 = pow(SIGMA/d, 6);
             double t12 = t6*t6;
             double f = 4*EPS*(12/d*t12 - 6/d*t6);
@@ -216,12 +211,32 @@ void force_LJ(domain *dm, int m)
     }
 }
 
+void force_rep(domain *dm, int m)
+{
+    for (int i = 0; i < dm->npart; i++){
+        if (i != m){
+            vec res; 
+            double diam = RADIUS*2;
+            double d = dist(dm, m, i, res);
+            double S = d - diam;
+            /* double f = 3*(.223*.223)/(4*3.14159*1)/pow(diam,4); */
+            double f = exp(-12*(d/2/RADIUS - 1));
+            f *= exp(-40*S)/d;
+            /* fprintf(stderr, "f: %e\n", f); */
+            for (int d= 0; d < 3; d++)
+                dm->F[3*m+d] += MAX(MIN(res[d]*f, MAXF), -MAXF);
+        }
+    }
+}
+
 int calculate_force(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
         dm->F[3*m+d] = 0;
-    force_LJ(dm, m);
-    force_DipoleDipole(dm, m);
+    /* force_LJ(dm, m); */
+    /* force_Drag(dm, m); */
+    force_rep(dm, m);
+    /* force_DipoleDipole(dm, m); */
     return 0;
 }
 
@@ -287,8 +302,8 @@ void calculate_torque(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
         dm->T[3*m+d] = 0;
-    torque_DipoleDipole(dm, m);
-    torque_H(dm, m);
+    /* torque_DipoleDipole(dm, m); */
+    /* torque_H(dm, m); */
     return;
 }
 
@@ -329,8 +344,9 @@ int print_checkpoint(char *basepath, domain *dm){
     FILE *chkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
     for (int m = 0; m < dm->npart; m++){
-        /* if (1){ */
-        if (dm->magnetic[m]){
+
+        if (1){
+        /* if (dm->magnetic[m]){ */
             for (int d = 0; d < 3; d++)
                 fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
             for (int d = 0; d < 3; d++)

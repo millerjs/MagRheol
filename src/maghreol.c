@@ -105,7 +105,7 @@ void setup(domain *dm)
 {
     /* Establish the domain */
     domain_populate(dm, npart);
-    domain_set_v0(dm, -10, 0, 0);
+    domain_set_v0(dm, 0, 0, 0);
     domain_set_boundary(dm, 0, PERIODIC);
     domain_set_boundary(dm, 1, REFLECTING);
     domain_set_boundary(dm, 2, REFLECTING);
@@ -122,6 +122,18 @@ int main(int argc, char *argv[])
         LOG("No config specified. Running with defaults.");
     else
         parse_config(argv[1]);
+
+    /* ########## Initialize Parameters ########## */
+    double VOL = PI*pow(RADIUS,3)*4/3;
+    double mass = 7850*VOL;
+    fprintf(stderr, "H: %e\n", H);
+    MU = 4/3.*PI*H*pow(RADIUS,3);
+    fprintf(stderr, "MU: %e\n", MU);
+    npart = 100;
+    double D = 6*PI*viscosity*RADIUS;
+    dt = mass/D;
+    fprintf(stderr, "dt: %e\n", dt);
+    /* ########################################### */
 
     domain *dm = domain_new(X,Y,Z);
     setup(dm);
