@@ -14,6 +14,8 @@
 #include "libjosh/libjosh.h"
 #include "params.h"
 
+#define FCONV 10.48
+
 domain *domain_new(double x, double y, double z)
 {
     srand(time(NULL));
@@ -59,16 +61,26 @@ int domain_populate(domain *dm, int n)
 {
     dm->npart = n;
     LOG("Populating domain [%p] with [%d] particles", dm, n);
-    ERROR_IF(!(dm->r = malloc(n*VECSIZE)), "Unable to allocate positions");
-    ERROR_IF(!(dm->oldr = malloc(n*VECSIZE)), "Unable to allocate old positions");
-    ERROR_IF(!(dm->oldmu = malloc(n*VECSIZE)), "Unable to allocate old positions");
-    ERROR_IF(!(dm->v = malloc(n*VECSIZE)), "Unable to allocate old positions");
-    ERROR_IF(!(dm->F = malloc(n*VECSIZE)), "Unable to allocate old positions");
-    ERROR_IF(!(dm->T = malloc(n*VECSIZE)), "Unable to allocate old positions");
-    ERROR_IF(!(dm->temp = malloc(n*VECSIZE)), "Unable to allocate buffer space");
-    ERROR_IF(!(dm->tempmu = malloc(n*VECSIZE)), "Unable to allocate buffer space");
-    ERROR_IF(!(dm->mu = malloc(n*VECSIZE)), "Unable to allocate buffer space");
-    ERROR_IF(!(dm->E = malloc(n*sizeof(double))), "Unable to allocate buffer space: E");
+    ERROR_IF(!(dm->r = malloc(n*VECSIZE)), 
+             "Unable to allocate positions");
+    ERROR_IF(!(dm->oldr = malloc(n*VECSIZE)), 
+             "Unable to allocate old positions");
+    ERROR_IF(!(dm->oldmu = malloc(n*VECSIZE)), 
+             "Unable to allocate old positions");
+    ERROR_IF(!(dm->v = malloc(n*VECSIZE)), 
+             "Unable to allocate old positions");
+    ERROR_IF(!(dm->F = malloc(n*VECSIZE)), 
+             "Unable to allocate old positions");
+    ERROR_IF(!(dm->T = malloc(n*VECSIZE)), 
+             "Unable to allocate old positions");
+    ERROR_IF(!(dm->temp = malloc(n*VECSIZE)), 
+             "Unable to allocate buffer space");
+    ERROR_IF(!(dm->tempmu = malloc(n*VECSIZE)), 
+             "Unable to allocate buffer space");
+    ERROR_IF(!(dm->mu = malloc(n*VECSIZE)), 
+             "Unable to allocate buffer space");
+    ERROR_IF(!(dm->E = malloc(n*sizeof(double))), 
+             "Unable to allocate buffer space: E");
     ERROR_IF(!(dm->magnetic = malloc(n*sizeof(unsigned char))), 
              "Unable to allocate buffer space: mag");
 
@@ -88,7 +100,6 @@ int domain_populate(domain *dm, int n)
                     dm->magnetic[m] = 1;
                     for (int d = 0; d < 3; d++){
                         dm->mu[3*m+d] = randomd(-1., 2.);
-                        /* dm->mu[3*m+d] = -(d==2); */
                     }
                     
                     normalize(dm->mu+3*m, MU);
@@ -106,8 +117,7 @@ int domain_populate(domain *dm, int n)
                 dm->oldr[3*m+2] = (k+.5)*cell[2];
 
                 for (int d = 0; d < 3; d ++){
-                    /* dm->v[3*m+d] = randomd(-50, 60); */
-                    dm->v[3*m+d] = 0;
+                    dm->v[3*m+d] = randomd(-5, 6.) + dm->v0[d];
                     /* dm->v[3*m+d] -= 500*(d==0); */
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
@@ -194,17 +204,6 @@ void force_Drag(domain *dm, int m)
     }
 }
 
-void force_Wall(domain *dm, int m)
-{
-    for (int d = 1; d < 3; d ++){
-        /* The particle is 'touching' the wall */
-        if (dm->r[3*m+d] < SIGMA/2 || dm->r[3*m+d] > dm->dim[d]-SIGMA/2){
-            dm->v[3*m] = 0;
-            dm->r[3*m] = dm->oldr[3*m];
-        }
-    }
-}
-
 void force_LJ(domain *dm, int m)
 {
     for (int i = 0; i < dm->npart; i++){
@@ -215,26 +214,11 @@ void force_LJ(domain *dm, int m)
             double t12 = t6*t6;
             double f = 4*EPS*(12/r*t12 - 6/r*t6);
             for (int d = 0; d < 3; d++)
-                dm->F[3*m+d] += res[d]*f*10.48;
-
+                dm->F[3*m+d] += res[d]*f*FCONV;
+            dm->E[m] += 4*EPS*(t12 - t6);
         }
     }
 }
-
-void force_DLVO(domain *dm, int m)
-{
-    for (int i = 0; i < dm->npart; i++){
-        if (i!=m){
-            vec res;
-            double r = MAX(dist(dm, m, i, res), 1e-4);
-            for (int d = 0; d < 3; d++){
-                double f = exp(-40*(r-2*3.4))*res[d]/r;
-                dm->F[3*m+d] += res[d]*f;
-            }
-        }
-    }
-}
-
 
 void force_drag(domain *dm, int m)
 {
@@ -286,7 +270,7 @@ void torque_DipoleDipole(domain *dm, int m)
                 t = mxj[d];
                 t -= 3/(rmj*rmj)*jr*mxr[d];
                 t *= 1e2;
-                dm->T[3*m+d] += MAX(MIN(t, 1e10), -1e10);
+                dm->T[3*m+d] += t;
             }
         }
     }
@@ -312,6 +296,7 @@ void calculate_torque(domain *dm, int m)
 
 int calculate_force(domain *dm, int m)
 {
+    dm->E[m] = 0;
     for (int d = 0; d < 3; d++)
         dm->F[3*m+d] = 0;
     force_LJ(dm, m);
@@ -334,7 +319,6 @@ int update_angles(domain *dm, int a, int b)
     return 0;
 }
 
-
 int update_positions(domain *dm, int a, int b)
 {
     for (int m = a; m < b; m++){
@@ -343,6 +327,7 @@ int update_positions(domain *dm, int a, int b)
             dm->temp[3*m+d] = 2*dm->r[3*m+d] - dm->oldr[3*m+d]
                 + dm->F[3*m+d]*10*dt*dt;
             dm->v[3*m+d] = (dm->temp[3*m+d] - dm->oldr[3*m+d])/(2*dt);
+            dm->E[m] += dot(dm->v+3*m, dm->v+3*m)*.5*FCONV;
         }
     }
     return 0;
@@ -353,19 +338,26 @@ int print_checkpoint(char *basepath, domain *dm){
     char path[1028];
     sprintf(path, "%s/chk_%05d.dat", basepath, checkpoint_count++);
     FILE *chkpnt = fopen(path, "w");
+    sprintf(path, "%s/mag_%05d.dat", basepath, checkpoint_count++);
+    FILE *magchkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
     for (int m = 0; m < dm->npart; m++){
-        /* if (1){ */
+        for (int d = 0; d < 3; d++)
+            fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
+        for (int d = 0; d < 3; d++)
+            fprintf(chkpnt, "%f\t", dm->mu[3*m+d]);
+        fprintf(chkpnt, "%d\t", dm->magnetic[m]);
+        fprintf(chkpnt, "\n");
         if (dm->magnetic[m]){
             for (int d = 0; d < 3; d++)
-                fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
+                fprintf(magchkpnt, "%f\t", dm->r[3*m+d]);
             for (int d = 0; d < 3; d++)
-                fprintf(chkpnt, "%f\t", dm->mu[3*m+d]);
-            fprintf(chkpnt, "%d\t", dm->magnetic[m]);
-            fprintf(chkpnt, "\n");
+                fprintf(magchkpnt, "%f\t", dm->mu[3*m+d]);
+            fprintf(magchkpnt, "\n");
         }
     }
     LOG("Wrote to checkpoint file [%s]\t%f", path, t);
     fclose(chkpnt);
+    fclose(magchkpnt);
     return 0;
 }

@@ -73,8 +73,10 @@ int parse_config(char *path)
     }
     free(line);
 
-    if (part_dens > 0)
-        npart = (int) (part_dens*X*Y*Z);
+    /* 
+     * if (part_dens > 0)
+     *     npart = (int) (part_dens*X*Y*Z);
+     */
 
     return 0;
 }
