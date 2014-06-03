@@ -186,8 +186,8 @@ void force_DipoleDipole(domain *dm, int m)
                 f = mj*r[d]/rmj;
                 f -= 5*mr*jr*r[d]/pow(rmj,3);
                 f += (mr*dm->mu[3*j+d] + jr*dm->mu[3*m+d])/rmj;
-                f /= pow(rmj,4);
-                f *= 1e8;
+                f *= 3/(4*PI*MU_0*pow(rmj,4))*1e2;
+                /* fprintf(stderr, "%e\n", f); */
                 dm->F[3*m+d] += f;
             }
         }
@@ -213,9 +213,27 @@ void force_LJ(domain *dm, int m)
             double t6 = pow(SIGMA/r, 6);
             double t12 = t6*t6;
             double f = 4*EPS*(12/r*t12 - 6/r*t6);
-            for (int d = 0; d < 3; d++)
+            for (int d = 0; d < 3; d++){
                 dm->F[3*m+d] += res[d]*f*FCONV;
+                fprintf(stderr, "%e\n", res[d]/r*f);
+            }
             dm->E[m] += 4*EPS*(t12 - t6);
+        }
+    }
+}
+
+void force_DLVO(domain *dm, int m)
+{
+    for (int i = 0; i < dm->npart; i++){
+        if (i!=m){
+            vec res;
+            double r = dist(dm, m, i, res);
+            double C = 3*MU_S*MU_S/(4*PI*MU_0*pow(2*R, 4));
+            double f = C*exp(-40*(r - 2*R));
+            dm->E[m] += C*exp(-40*r)*exp(40*2*R)*(40*r+1)/(r*r);
+            for (int d = 0; d < 3; d++)
+                dm->F[3*m+d] += res[d]/r*f;
+            
         }
     }
 }
@@ -223,7 +241,7 @@ void force_LJ(domain *dm, int m)
 void force_drag(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
-        dm->F[3*m+d] -= dm->v[3*m+d]*.9;
+        dm->F[3*m+d] -= dm->v[3*m+d]*1.5e-4*R;
 }
 
 void check_boundary(domain *dm, int m)
@@ -268,8 +286,7 @@ void torque_DipoleDipole(domain *dm, int m)
 
             for (int d = 0; d < 3; d ++){
                 t = mxj[d];
-                t -= 3/(rmj*rmj)*jr*mxr[d];
-                t *= 1e2;
+                t -= 300/(rmj*rmj)*jr*mxr[d];
                 dm->T[3*m+d] += t;
             }
         }
@@ -278,11 +295,11 @@ void torque_DipoleDipole(domain *dm, int m)
 
 void torque_H(domain *dm, int m)
 {
-    vec M = {0, -H, 0};
-    vec t = {0,0,0};
+    vec M = {0, 0,-H};
+    vec t = {0, 0, 0};
     cross(dm->mu+3*m, M, t);
     for (int d = 0; d < 3; d++)
-        dm->T[3*m+d] += t[d]*1e2;
+        dm->T[3*m+d] += t[d];
 }
 
 void calculate_torque(domain *dm, int m)
@@ -299,8 +316,9 @@ int calculate_force(domain *dm, int m)
     dm->E[m] = 0;
     for (int d = 0; d < 3; d++)
         dm->F[3*m+d] = 0;
-    force_LJ(dm, m);
+    force_DLVO(dm, m);
     force_DipoleDipole(dm, m);
+    force_drag(dm, m);
     return 0;
 }
 
@@ -327,7 +345,7 @@ int update_positions(domain *dm, int a, int b)
             dm->temp[3*m+d] = 2*dm->r[3*m+d] - dm->oldr[3*m+d]
                 + dm->F[3*m+d]*10*dt*dt;
             dm->v[3*m+d] = (dm->temp[3*m+d] - dm->oldr[3*m+d])/(2*dt);
-            dm->E[m] += dot(dm->v+3*m, dm->v+3*m)*.5*FCONV;
+            dm->E[m] += dot(dm->v+3*m, dm->v+3*m)*.5;
         }
     }
     return 0;
@@ -352,11 +370,10 @@ int print_checkpoint(char *basepath, domain *dm){
             for (int d = 0; d < 3; d++)
                 fprintf(magchkpnt, "%f\t", dm->r[3*m+d]);
             for (int d = 0; d < 3; d++)
-                fprintf(magchkpnt, "%f\t", dm->mu[3*m+d]);
+                fprintf(magchkpnt, "%f\t", fabs(dm->mu[3*m+d]));
             fprintf(magchkpnt, "\n");
         }
     }
-    LOG("Wrote to checkpoint file [%s]\t%f", path, t);
     fclose(chkpnt);
     fclose(magchkpnt);
     return 0;

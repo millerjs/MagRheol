@@ -26,7 +26,6 @@ double H                = 1.0;
 double MU               = 10.;
 double Q = 1;
 
-
 int parse_config(char *path)
 {
     FILE *config = fopen(path, "r");

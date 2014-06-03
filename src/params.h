@@ -22,7 +22,9 @@
 #define PI 3.14159265359
 #define viscosity .25
 #define EPS .05 /* kcal/mol */
-#define SIGMA 3.4 /* kcal/mol */
+#define SIGMA 1.5
+#define R 1.5
+#define MU_S .223
 
 extern int step;
 
