@@ -199,6 +199,7 @@ void force_DipoleDipole(domain *dm, int m)
                 f -= 5*mr*jr*r[d]/pow(rmj,3);
                 f += (mr*dm->mu[3*j+d] + jr*dm->mu[3*m+d])/rmj;
                 f *= 3/(4*PI*MU_0*pow(rmj,4))*1e2;
+                /* fprintf(stderr, "%e\n", f); */
                 dm->F[3*m+d] += f;
             }
         }
@@ -330,23 +331,19 @@ int update_positions(domain *dm, int a, int b)
         }
     }
 
-    if (t > 12){
-        
-    }
-
-
     return 0;
 }
 
 int checkpoint_count = 0;
 int print_checkpoint(char *basepath, domain *dm){
     char path[1028];
-    sprintf(path, "%s/chk_%05d.dat", basepath, checkpoint_count++);
+    checkpoint_count++;
+    sprintf(path, "%s/chk_%05d.dat", basepath, checkpoint_count);
     FILE *chkpnt = fopen(path, "w");
-    sprintf(path, "%s/mag_%05d.dat", basepath, checkpoint_count++);
+    sprintf(path, "%s/mag_%05d.dat", basepath, checkpoint_count);
     FILE *magchkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
-    sprintf(path, "%s/proj_%05d.dat", basepath, checkpoint_count++);
+    sprintf(path, "%s/proj_%05d.dat", basepath, checkpoint_count);
     FILE *proj = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
     for (int d = 0; d < 3; d++)

@@ -16,9 +16,6 @@
 #include "domain.h"
 #include "params.h"
 #include "math.h"
-#include "sys/stat.h"
-
-char *outputdir = NULL;
 
 void *evolveThreaded(void *args)
 {
@@ -75,7 +72,7 @@ void *evolveThreaded(void *args)
             }
 
             if (!(step % checkpoint_interval)){
-                print_checkpoint(outputdir, dm);
+                print_checkpoint("checkpoints", dm);
                 fprintf(stdout, "%04d  %5.3f\t%.3f\t%5.3f  %5.3f  %5.3f\t%f\n",
                         step/checkpoint_interval, t, E,
                         (mu[0]/nmagnetic)/MU, 
@@ -113,31 +110,26 @@ int main(int argc, char *argv[])
     /* Open a log file */
     open_log_file("magrheol.log");
 
-    ERROR_IF(argc < 3, "No config / outputdir specified.");
-    parse_config(argv[1]);
-    
-    outputdir = strdup(argv[2]);
-    if (!mkdir(outputdir, S_IRWXU)){
-        printf("Created directory [%s/]\n", outputdir);
-    }
 
-    printf("Writing output to directory [%s/]\n.", outputdir);
-    LOG("Writing to directory [%s]", outputdir);
-    
+    if(argc < 2)
+        LOG("No config specified. Running with defaults.");
+    else
+        parse_config(argv[1]);
+
     domain *dm = domain_new(X,Y,Z);
     setup(dm);
-    
+
     threadpool_t *pool = threadpool_create(&evolveThreaded, 16);
     pool->dm = dm;
-    
-    print_checkpoint(outputdir, dm);
+
+    print_checkpoint("checkpoints", dm);
     step ++;
     threadpool_start(pool);
-    
+
     /* Clean up */
     threadpool_join(pool);
 
-    print_checkpoint(outputdir, dm);
+    print_checkpoint("checkpoints", dm);
 
     close_log_file();
     
