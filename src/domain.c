@@ -109,7 +109,8 @@ int domain_populate(domain *dm, int n)
         dm->oldpr[d] = dm->pr[d];
         dm->F[d] = 0;
     }
-
+    dm->oldpr[0] += .1*dt;
+    
     int m = 0;
     for (double i = 0; i < ceil(r); i++){
         for (int j = 0; j < ceil(r); j++){
@@ -137,7 +138,8 @@ int domain_populate(domain *dm, int n)
                 dm->oldr[3*m+2] = (k+.5)*cell[2];
 
                 for (int d = 0; d < 3; d ++){
-                    dm->v[3*m+d] = randomd(-5, 6.) + dm->v0[d];
+                    double scale = 10;
+                    dm->v[3*m+d] = randomd(-scale, 2*scale) + dm->v0[d];
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
 
@@ -246,24 +248,23 @@ void force_DLVO_Projectile(domain *dm)
 
 void force_DLVO_Proj_Part(domain *dm, int m)
 {
-    vec res;
-    double r = 0;
-    for (int d = 0; d < 3; d ++){
-        res[d] = dm->r[3*m+d] - dm->pr[d];
-        r += res[d]*res[d];    
-    }
-    double C = 3*MU_S*MU_S/(4*PI*MU_0*pow(2*R, 4));
-    double f = C*exp(-40*(r - R - dm->pR));
-    for (int d = 0; d < 3; d++){
-        dm->F[3*m+d] -= res[d]/r*f*1e3;
+    for (int i = 0; i < dm->npart; i++){
+        if (i!=m){
+            vec res;
+            double r = dist(dm, m, i, res);
+            double C = 3*MU_S*MU_S/(4*PI*MU_0*pow(2*R, 4));
+            double f = C*exp(-40*(r - 2*R));
+            dm->E[m] += C*exp(-40*r)*exp(40*2*R)*(40*r+1)/(r*r);
+            for (int d = 0; d < 3; d++)
+                dm->F[3*m+d] += res[d]/r*f;
+        }
     }
 }
-
 
 void force_drag(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
-        dm->F[3*m+d] -= dm->v[3*m+d]*1.5*R;
+        dm->F[3*m+d] -= dm->v[3*m+d]*1.5e-4*R;
 }
 
 void check_boundary(domain *dm, int m)
@@ -338,7 +339,7 @@ int calculate_force(domain *dm, int m)
         dm->F[3*m+d] = 0;
     force_DLVO(dm, m);
     force_DipoleDipole(dm, m);
-    force_DLVO_Proj_Part(dm, m);
+    /* force_DLVO_Proj_Part(dm, m); */
     force_drag(dm, m);
     return 0;
 }

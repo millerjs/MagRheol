@@ -44,19 +44,14 @@ void *evolveThreaded(void *args)
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
 
-            if (step == 600){
-                fprintf(stderr, " === Started projectile ===\n");
-                dm->pr[0] -= 1.0*dt;
-            }
-            
             /* calculate force on projectile */
             force_DLVO_Projectile(dm);
             
             /* update the projectile */
             for (int d = 0; d < 3; d++){
-                double temp = dm->pr[d];
-                dm->pr[d] = 2*dm->pr[d] - dm->oldpr[d];
-                dm->oldpr[d] = temp;
+                /* double temp = dm->pr[d]; */
+                /* dm->pr[d] = 2*dm->pr[d] - dm->oldpr[d]; */
+                /* dm->oldpr[d] = temp; */
             }
 
             temp = dm->oldr;
