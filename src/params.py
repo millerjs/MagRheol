@@ -1,5 +1,6 @@
 from numpy import *
 
+
 npart = 216
 maxt = 20.
 ratio = .3

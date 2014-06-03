@@ -14,6 +14,7 @@
 #include "libjosh/libjosh.h"
 #include "params.h"
 
+#define FCONV 10.48
 
 domain *domain_new(double x, double y, double z)
 {
@@ -116,8 +117,8 @@ int domain_populate(domain *dm, int n)
                 dm->oldr[3*m+2] = (k+.5)*cell[2];
 
                 for (int d = 0; d < 3; d ++){
-                    dm->v[3*m+d] = dm->v0[d];
                     dm->v[3*m+d] = randomd(-5, 6.) + dm->v0[d];
+                    /* dm->v[3*m+d] -= 500*(d==0); */
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
 
@@ -195,8 +196,11 @@ void force_DipoleDipole(domain *dm, int m)
 
 void force_Drag(domain *dm, int m)
 {
-    for (int d = 1; d < 3; d++){
-        dm->F[3*m+d] += 6*3.14159*1.5e-4*RADIUS*dm->v[3*m+d];
+    for (int j = 1; j < 3; j++){
+        if (dm->r[3*m+j] < SIGMA || dm->r[3*+j] > dm->dim[j] - SIGMA){
+            dm->v[3*m] = 0;
+            dm->F[3*m] = 0;
+        } 
     }
 }
 
@@ -229,7 +233,6 @@ void force_DLVO(domain *dm, int m)
             dm->E[m] += C*exp(-40*r)*exp(40*2*R)*(40*r+1)/(r*r);
             for (int d = 0; d < 3; d++)
                 dm->F[3*m+d] += res[d]/r*f;
-            
         }
     }
 }
@@ -291,19 +294,19 @@ void torque_DipoleDipole(domain *dm, int m)
 
 void torque_H(domain *dm, int m)
 {
-    vec M = {0, 0,-H};
+    vec M = {0,-H, 0};
     vec t = {0, 0, 0};
     cross(dm->mu+3*m, M, t);
     for (int d = 0; d < 3; d++)
-        dm->T[3*m+d] += t[d];
+        dm->T[3*m+d] += t[d]*1e3;
 }
 
 void calculate_torque(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
         dm->T[3*m+d] = 0;
-    /* torque_DipoleDipole(dm, m); */
-    /* torque_H(dm, m); */
+    torque_DipoleDipole(dm, m);
+    torque_H(dm, m);
     return;
 }
 

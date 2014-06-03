@@ -4,6 +4,7 @@
  * DESCRIPTION : Main function for magnetorehological simulations
  ******************************************************************************/
 
+
 #define _GNU_SOURCE
 
 #include "params.h"

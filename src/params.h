@@ -4,6 +4,7 @@
  * DESCRIPTION : Main function for magnetorehological simulations
  ******************************************************************************/
 
+
 #ifndef PARAMS_H
 #define PARAMS_H
 
