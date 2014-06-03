@@ -4,7 +4,6 @@
  * DESCRIPTION : Main function for magnetorehological simulations
  ******************************************************************************/
 
-
 #define _GNU_SOURCE
 
 #include "params.h"
@@ -25,7 +24,6 @@ double dt               =  .01;
 double ratio            = .03;
 double H                = 1.0;
 double MU               = 10.;
-double Q = 1;
 
 int parse_config(char *path)
 {
@@ -72,11 +70,6 @@ int parse_config(char *path)
         }
     }
     free(line);
-
-    /* 
-     * if (part_dens > 0)
-     *     npart = (int) (part_dens*X*Y*Z);
-     */
 
     return 0;
 }

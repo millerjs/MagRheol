@@ -187,7 +187,6 @@ void force_DipoleDipole(domain *dm, int m)
                 f -= 5*mr*jr*r[d]/pow(rmj,3);
                 f += (mr*dm->mu[3*j+d] + jr*dm->mu[3*m+d])/rmj;
                 f *= 3/(4*PI*MU_0*pow(rmj,4))*1e2;
-                /* fprintf(stderr, "%e\n", f); */
                 dm->F[3*m+d] += f;
             }
         }
@@ -240,7 +239,7 @@ void force_DLVO(domain *dm, int m)
 void force_drag(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
-        dm->F[3*m+d] -= dm->v[3*m+d]*1.5e-4*R;
+        dm->F[3*m+d] -= dm->v[3*m+d]*1.5e-2*R;
 }
 
 void check_boundary(domain *dm, int m)
@@ -369,7 +368,7 @@ int print_checkpoint(char *basepath, domain *dm){
             for (int d = 0; d < 3; d++)
                 fprintf(magchkpnt, "%f\t", dm->r[3*m+d]);
             for (int d = 0; d < 3; d++)
-                fprintf(magchkpnt, "%f\t", dm->mu[3*m+d]);
+                fprintf(magchkpnt, "%f\t", fabs(dm->mu[3*m+d]));
             fprintf(magchkpnt, "\n");
         }
     }

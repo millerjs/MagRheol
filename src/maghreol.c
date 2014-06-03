@@ -16,6 +16,9 @@
 #include "domain.h"
 #include "params.h"
 #include "math.h"
+#include "sys/stat.h"
+
+char *outputdir = NULL;
 
 void *evolveThreaded(void *args)
 {
@@ -72,7 +75,7 @@ void *evolveThreaded(void *args)
             }
 
             if (!(step % checkpoint_interval)){
-                print_checkpoint("checkpoints", dm);
+                print_checkpoint(outputdir, dm);
                 fprintf(stdout, "%04d  %5.3f\t%.3f\t%5.3f  %5.3f  %5.3f\t%f\n",
                         step/checkpoint_interval, t, E,
                         (mu[0]/nmagnetic)/MU, 
@@ -99,10 +102,10 @@ void setup(domain *dm)
 {
     /* Establish the domain */
     domain_populate(dm, npart);
-    domain_set_v0(dm, -10, 0, 0);
+    domain_set_v0(dm, -1e6, 0, 0);
     domain_set_boundary(dm, 0, PERIODIC);
-    domain_set_boundary(dm, 1, PERIODIC);
-    domain_set_boundary(dm, 2, PERIODIC);
+    domain_set_boundary(dm, 1, REFLECTING);
+    domain_set_boundary(dm, 2, REFLECTING);
 }
 
 int main(int argc, char *argv[])
@@ -110,26 +113,31 @@ int main(int argc, char *argv[])
     /* Open a log file */
     open_log_file("magrheol.log");
 
+    ERROR_IF(argc < 3, "No config / outputdir specified.");
+    parse_config(argv[1]);
+    
+    outputdir = strdup(argv[2]);
+    if (!mkdir(outputdir, S_IRWXU)){
+        printf("Created directory [%s/]\n", outputdir);
+    }
 
-    if(argc < 2)
-        LOG("No config specified. Running with defaults.");
-    else
-        parse_config(argv[1]);
-
+    printf("Writing output to directory [%s/]\n.", outputdir);
+    LOG("Writing to directory [%s]", outputdir);
+    
     domain *dm = domain_new(X,Y,Z);
     setup(dm);
-
+    
     threadpool_t *pool = threadpool_create(&evolveThreaded, 16);
     pool->dm = dm;
-
-    print_checkpoint("checkpoints", dm);
+    
+    print_checkpoint(outputdir, dm);
     step ++;
     threadpool_start(pool);
-
+    
     /* Clean up */
     threadpool_join(pool);
 
-    print_checkpoint("checkpoints", dm);
+    print_checkpoint(outputdir, dm);
 
     close_log_file();
     
