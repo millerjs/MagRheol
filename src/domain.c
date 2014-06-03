@@ -286,7 +286,7 @@ void torque_DipoleDipole(domain *dm, int m)
 
             for (int d = 0; d < 3; d ++){
                 t = mxj[d];
-                t -= 300/(rmj*rmj)*jr*mxr[d];
+                t -= 3/(rmj*rmj)*jr*mxr[d];
                 dm->T[3*m+d] += t;
             }
         }
@@ -370,7 +370,7 @@ int print_checkpoint(char *basepath, domain *dm){
             for (int d = 0; d < 3; d++)
                 fprintf(magchkpnt, "%f\t", dm->r[3*m+d]);
             for (int d = 0; d < 3; d++)
-                fprintf(magchkpnt, "%f\t", fabs(dm->mu[3*m+d]));
+                fprintf(magchkpnt, "%f\t", dm->mu[3*m+d]);
             fprintf(magchkpnt, "\n");
         }
     }
