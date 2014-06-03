@@ -55,6 +55,7 @@ void check_boundary(domain *dm, int m);
 int update_angles(domain *dm, int a, int b);
 void normalize(double *a, double m);
 double dot(double *a, double *b);
+void force_DLVO_Projectile(domain *dm);
 
 #endif 
 

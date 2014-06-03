@@ -14,6 +14,8 @@
 #include "libjosh/libjosh.h"
 #include "params.h"
 
+#define FCONV 1.0e1
+
 domain *domain_new(double x, double y, double z)
 {
     srand(time(NULL));
@@ -100,8 +102,13 @@ int domain_populate(domain *dm, int n)
         LOG("Particle discretization distance: %f", cell[j]);
 
     dm->pr[0] = dm->dim[0] + 5;
-    dm->pr[1] = dm->dim[0]/2.;
-    dm->pr[1] = dm->dim[0]/2;
+    dm->pr[1] = dm->dim[1] / 2.;
+    dm->pr[2] = dm->dim[2] / 2;
+    dm->pR = 10;
+    for (int d = 0; d < 3; d ++){
+        dm->oldpr[d] = dm->pr[d];
+        dm->F[d] = 0;
+    }
 
     int m = 0;
     for (double i = 0; i < ceil(r); i++){
@@ -166,6 +173,7 @@ double dist(domain *dm, int m, int n, vec r)
     return sqrt(temp);
 }
 
+
 double dot(double *a, double *b)
 {
     double res = 0;
@@ -199,7 +207,6 @@ void force_DipoleDipole(domain *dm, int m)
                 f -= 5*mr*jr*r[d]/pow(rmj,3);
                 f += (mr*dm->mu[3*j+d] + jr*dm->mu[3*m+d])/rmj;
                 f *= 3/(4*PI*MU_0*pow(rmj,4))*1e2;
-                /* fprintf(stderr, "%e\n", f); */
                 dm->F[3*m+d] += f;
             }
         }
@@ -220,6 +227,38 @@ void force_DLVO(domain *dm, int m)
         }
     }
 }
+
+void force_DLVO_Projectile(domain *dm)
+{
+    for (int m = 0; m < dm->npart; m++){
+        vec res;
+        double r = 0;
+        for (int d = 0; d < 3; d ++){
+            res[d] = dm->r[3*m+d] - dm->pr[d];
+            r += res[d]*res[d];    
+        }
+        double C = 3*MU_S*MU_S/(4*PI*MU_0*pow(2*R, 4));
+        double f = C*exp(-40*(r - R - dm->pR));
+        for (int d = 0; d < 3; d++)
+            dm->pF[d] += res[d]/r*f;
+    }
+}
+
+void force_DLVO_Proj_Part(domain *dm, int m)
+{
+    vec res;
+    double r = 0;
+    for (int d = 0; d < 3; d ++){
+        res[d] = dm->r[3*m+d] - dm->pr[d];
+        r += res[d]*res[d];    
+    }
+    double C = 3*MU_S*MU_S/(4*PI*MU_0*pow(2*R, 4));
+    double f = C*exp(-40*(r - R - dm->pR));
+    for (int d = 0; d < 3; d++){
+        dm->F[3*m+d] -= res[d]/r*f*1e3;
+    }
+}
+
 
 void force_drag(domain *dm, int m)
 {
@@ -265,7 +304,6 @@ void torque_DipoleDipole(domain *dm, int m)
             cross(dm->mu+3*m, dm->mu+3*j, mxj);
             cross(dm->mu+3*m, r, mxr);
             double jr = dot(dm->mu+3*j, r);
-
             for (int d = 0; d < 3; d ++){
                 t = mxj[d];
                 t -= 3/(rmj*rmj)*jr*mxr[d];
@@ -300,6 +338,7 @@ int calculate_force(domain *dm, int m)
         dm->F[3*m+d] = 0;
     force_DLVO(dm, m);
     force_DipoleDipole(dm, m);
+    force_DLVO_Proj_Part(dm, m);
     force_drag(dm, m);
     return 0;
 }
@@ -321,15 +360,16 @@ int update_angles(domain *dm, int a, int b)
 
 int update_positions(domain *dm, int a, int b)
 {
+    /* update the particles */
     for (int m = a; m < b; m++){
         calculate_force(dm, m);
         for (int d = 0; d < 3; d++){
             dm->temp[3*m+d] = 2*dm->r[3*m+d] - dm->oldr[3*m+d]
-                + dm->F[3*m+d]*10*dt*dt;
+                + dm->F[3*m+d]*FCONV*dt*dt;
             dm->v[3*m+d] = (dm->temp[3*m+d] - dm->oldr[3*m+d])/(2*dt);
             dm->E[m] += dot(dm->v+3*m, dm->v+3*m)*.5;
         }
-    }
+    }    
 
     return 0;
 }
@@ -344,11 +384,7 @@ int print_checkpoint(char *basepath, domain *dm){
     FILE *magchkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
     sprintf(path, "%s/proj_%05d.dat", basepath, checkpoint_count);
-    FILE *proj = fopen(path, "w");
-    WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
-    for (int d = 0; d < 3; d++)
-        fprintf(proj, "%f\t", dm->pr[d]);
-    fprintf(proj, "%f\n", norm(dm->pF));
+
     for (int m = 0; m < dm->npart; m++){
         for (int d = 0; d < 3; d++)
             fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
@@ -364,6 +400,15 @@ int print_checkpoint(char *basepath, domain *dm){
             fprintf(magchkpnt, "\n");
         }
     }
+
+    FILE *proj = fopen(path, "w");
+    WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
+    /* for (int m = 0; m < 5; m ++){ */
+        for (int d = 0; d < 3; d++)
+            fprintf(proj, "%f\t", dm->pr[d]);
+        fprintf(proj, "%f\n", norm(dm->pF));
+    /* } */
+
     fclose(chkpnt);
     fclose(magchkpnt);
     fclose(proj);
