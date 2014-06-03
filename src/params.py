@@ -1,13 +1,13 @@
 from numpy import *
 
-npart = 216
+npart = 729
 maxt = 20.
 ratio = .3
 dt = .001
 H = 10
 MU = .01
 
-print "npart=\t\t %e" % (npart * 2)
+print "npart=\t\t %e" % (npart *3)
 visc = 1.5e-4
 
 print "max_t=\t\t %e" % 20
@@ -28,9 +28,9 @@ part_dens = dens/mass_particle #particles/microm
 print "part_dens=\t %e " % part_dens
 volume = 1/part_dens*npart
 print "volume=\t\t %e " % volume
-print "X=\t\t %e " % ((volume)**(1/3.)*2)
-print "Y=\t\t %e " % (volume)**(1/3.)
-print "Z=\t\t %e " % (volume)**(1/3.)
+print "X=\t\t %e " % ((volume)**(1/3.))
+print "Y=\t\t %e " % ((volume)**(1/3.))
+print "Z=\t\t %e " % ((volume)**(1/3.))
 print "total_mass=\t %e " % (npart*mass_particle)
 # print "dt=\t\t %e" % (1e-8*mass_particle*3*pi*visc*partradius*2)
 print "checkpoint_interval=\t %e" % 50

@@ -14,8 +14,6 @@
 #include "libjosh/libjosh.h"
 #include "params.h"
 
-#define FCONV 10.48
-
 domain *domain_new(double x, double y, double z)
 {
     srand(time(NULL));
@@ -57,7 +55,7 @@ void normalize(double *a, double m)
         a[d] *= m/n;
 }
 
-int domain_populate(domain *dm, int n)
+void allocate_dm(domain *dm, int n)
 {
     dm->npart = n;
     LOG("Populating domain [%p] with [%d] particles", dm, n);
@@ -83,6 +81,17 @@ int domain_populate(domain *dm, int n)
              "Unable to allocate buffer space: E");
     ERROR_IF(!(dm->magnetic = malloc(n*sizeof(unsigned char))), 
              "Unable to allocate buffer space: mag");
+    ERROR_IF(!(dm->pr = malloc(3*sizeof(double))), 
+             "Unable to allocate buffer space: mag");
+    ERROR_IF(!(dm->oldpr = malloc(3*sizeof(double))), 
+             "Unable to allocate buffer space: mag");
+    ERROR_IF(!(dm->pF = malloc(3*sizeof(double))), 
+             "Unable to allocate buffer space: mag");
+}
+
+int domain_populate(domain *dm, int n)
+{
+    allocate_dm(dm, n);
 
     double r = pow(dm->npart, 1/3.);
     vec cell = {dm->dim[0]/r, dm->dim[1]/r, dm->dim[2]/r};
@@ -90,8 +99,12 @@ int domain_populate(domain *dm, int n)
     for (int j = 0; j < 3; j ++)
         LOG("Particle discretization distance: %f", cell[j]);
 
+    dm->pr[0] = dm->dim[0] + 5;
+    dm->pr[1] = dm->dim[0]/2.;
+    dm->pr[1] = dm->dim[0]/2;
+
     int m = 0;
-    for (int i = 0; i < ceil(r); i++){
+    for (double i = 0; i < ceil(r); i++){
         for (int j = 0; j < ceil(r); j++){
             for (int k = 0; k < ceil(r); k++){
 
@@ -118,7 +131,6 @@ int domain_populate(domain *dm, int n)
 
                 for (int d = 0; d < 3; d ++){
                     dm->v[3*m+d] = randomd(-5, 6.) + dm->v0[d];
-                    /* dm->v[3*m+d] -= 500*(d==0); */
                     dm->r[3*m+d] = dm->oldr[3*m+d] + dm->v[3*m+d]*dt;
                 }
 
@@ -193,34 +205,6 @@ void force_DipoleDipole(domain *dm, int m)
     }
 }
 
-void force_Drag(domain *dm, int m)
-{
-    for (int j = 1; j < 3; j++){
-        if (dm->r[3*m+j] < SIGMA || dm->r[3*+j] > dm->dim[j] - SIGMA){
-            dm->v[3*m] = 0;
-            dm->F[3*m] = 0;
-        } 
-    }
-}
-
-void force_LJ(domain *dm, int m)
-{
-    for (int i = 0; i < dm->npart; i++){
-        if (i!=m){
-            vec res;
-            double r = dist(dm, m, i, res);
-            double t6 = pow(SIGMA/r, 6);
-            double t12 = t6*t6;
-            double f = 4*EPS*(12/r*t12 - 6/r*t6);
-            for (int d = 0; d < 3; d++){
-                dm->F[3*m+d] += res[d]*f*FCONV;
-                fprintf(stderr, "%e\n", res[d]/r*f);
-            }
-            dm->E[m] += 4*EPS*(t12 - t6);
-        }
-    }
-}
-
 void force_DLVO(domain *dm, int m)
 {
     for (int i = 0; i < dm->npart; i++){
@@ -239,7 +223,7 @@ void force_DLVO(domain *dm, int m)
 void force_drag(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
-        dm->F[3*m+d] -= dm->v[3*m+d]*1.5e-2*R;
+        dm->F[3*m+d] -= dm->v[3*m+d]*1.5*R;
 }
 
 void check_boundary(domain *dm, int m)
@@ -248,11 +232,10 @@ void check_boundary(domain *dm, int m)
         if (dm->boundary[d] == PERIODIC){
             if (dm->r[3*m+d] > dm->dim[d]){
                 dm->r[3*m+d] -= dm->dim[d];
-                dm->oldr[3*m+d] -= dm->dim[d];
+                dm->oldr[3*m+d] = dm->oldr[3*m+d] - dm->dim[d];
             } else if (dm->r[3*m+d] < 0) {
                 dm->r[3*m+d] += dm->dim[d];
-                dm->oldr[3*m+d] += dm->dim[d];
-                
+                dm->oldr[3*m+d] = dm->oldr[3*m+d] + dm->dim[d];
             }
         } else if (dm->boundary[d] == REFLECTING) {
             if (dm->r[3*m+d] > dm->dim[d]){
@@ -346,6 +329,12 @@ int update_positions(domain *dm, int a, int b)
             dm->E[m] += dot(dm->v+3*m, dm->v+3*m)*.5;
         }
     }
+
+    if (t > 12){
+        
+    }
+
+
     return 0;
 }
 

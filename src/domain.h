@@ -36,6 +36,10 @@ typedef struct{
     double *mu;
     double *tempmu;
     double *oldmu;
+    double *pr;
+    double *oldpr;
+    double *pF;
+    double pR;
     unsigned char *magnetic;
 } domain;
 

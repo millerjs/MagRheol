@@ -102,10 +102,10 @@ void setup(domain *dm)
 {
     /* Establish the domain */
     domain_populate(dm, npart);
-    domain_set_v0(dm, -1e6, 0, 0);
+    domain_set_v0(dm, 0, 0, 0);
     domain_set_boundary(dm, 0, PERIODIC);
-    domain_set_boundary(dm, 1, REFLECTING);
-    domain_set_boundary(dm, 2, REFLECTING);
+    domain_set_boundary(dm, 1, PERIODIC);
+    domain_set_boundary(dm, 2, PERIODIC);
 }
 
 int main(int argc, char *argv[])
