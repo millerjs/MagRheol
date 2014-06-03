@@ -346,6 +346,12 @@ int print_checkpoint(char *basepath, domain *dm){
     sprintf(path, "%s/mag_%05d.dat", basepath, checkpoint_count++);
     FILE *magchkpnt = fopen(path, "w");
     WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
+    sprintf(path, "%s/proj_%05d.dat", basepath, checkpoint_count++);
+    FILE *proj = fopen(path, "w");
+    WARN_IF(!chkpnt, "Unable to open checkpoint file [%s]", path);
+    for (int d = 0; d < 3; d++)
+        fprintf(proj, "%f\t", dm->pr[d]);
+    fprintf(proj, "%f\n", norm(dm->pF));
     for (int m = 0; m < dm->npart; m++){
         for (int d = 0; d < 3; d++)
             fprintf(chkpnt, "%f\t", dm->r[3*m+d]);
@@ -363,5 +369,6 @@ int print_checkpoint(char *basepath, domain *dm){
     }
     fclose(chkpnt);
     fclose(magchkpnt);
+    fclose(proj);
     return 0;
 }
