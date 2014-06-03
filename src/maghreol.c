@@ -17,16 +17,6 @@
 #include "params.h"
 #include "math.h"
 
-void equillibrate(domain *dm)
-{
-    LOG("Starting equilibration.");
-    int NEQUIL = 0;
-    for (int i = 0; i < NEQUIL; i++){
-        update_positions(dm, 0, dm->npart);
-    }
-    LOG("Equilibration steps %d complete", NEQUIL);
-}
-
 void *evolveThreaded(void *args)
 {
     thread_t *thread = (thread_t*) args;
@@ -68,8 +58,10 @@ void *evolveThreaded(void *args)
             vec v = {0,0,0};
 
             int nmagnetic = 0;
+            double E = 0;
             for (int m = 0; m < dm->npart; m ++){
                 check_boundary(dm, m);
+                E += dm->E[m];
                 if (dm->magnetic[m]){
                     nmagnetic ++;
                     for (int d = 0; d < 3; d++){
@@ -81,10 +73,12 @@ void *evolveThreaded(void *args)
 
             if (!(step % checkpoint_interval)){
                 print_checkpoint("checkpoints", dm);
-                fprintf(stdout, "%04d  %5.3f\t%5.3f  %5.3f  %5.3f \t %5.3f  %5.3f  %5.3f\n",
-                        step/checkpoint_interval, t, 
-                        mu[0]/nmagnetic, mu[1]/nmagnetic, mu[2]/nmagnetic,
-                        v[0]/dm->npart, v[1]/dm->npart, v[2]/dm->npart);
+                fprintf(stdout, "%04d  %5.3f\t%.3f\t%5.3f  %5.3f  %5.3f\t%f\n",
+                        step/checkpoint_interval, t, E,
+                        (mu[0]/nmagnetic)/MU, 
+                        (mu[1]/nmagnetic)/MU, 
+                        (mu[2]/nmagnetic)/MU,
+                        dot(v, v));
             }
             
             t += dt;
@@ -107,8 +101,6 @@ void setup(domain *dm)
     domain_populate(dm, npart);
     domain_set_v0(dm, 0, 0, 0);
     domain_set_boundary(dm, 0, PERIODIC);
-    domain_set_boundary(dm, 1, REFLECTING);
-    domain_set_boundary(dm, 2, REFLECTING);
     domain_set_boundary(dm, 1, PERIODIC);
     domain_set_boundary(dm, 2, PERIODIC);
 }

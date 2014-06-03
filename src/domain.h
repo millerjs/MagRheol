@@ -13,8 +13,6 @@
 
 #include "particles.h"
 
-#define EPS .05 /* kcal/mol */
-#define SIGMA 3.4 /* kcal/mol */
 
 typedef enum{
     REFLECTING,
@@ -28,6 +26,7 @@ typedef struct{
     double v0[3];
     int npart;
     double *F;
+    double *E;
     double *T;
     double *r;
     double *oldr;
@@ -50,6 +49,7 @@ double randomd(double min, double max);
 void check_boundary(domain *dm, int m);
 int update_angles(domain *dm, int a, int b);
 void normalize(double *a, double m);
+double dot(double *a, double *b);
 
 #endif 
 
