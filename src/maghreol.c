@@ -41,17 +41,28 @@ void *evolveThreaded(void *args)
         update_angles(dm, a, b);
         pthread_barrier_wait(&thread->pool->barrier2);
 
+        /* int n_start = 10000; */
+        int n_start = 1000;
+
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
+
+            if (step == n_start){
+                fprintf(stderr, "\n\nStarting projectile\n\n");
+                dm->oldpr[0] += 2.0*dt;
+            }
 
             /* calculate force on projectile */
             force_DLVO_Projectile(dm);
             
             /* update the projectile */
-            for (int d = 0; d < 3; d++){
-                /* double temp = dm->pr[d]; */
-                /* dm->pr[d] = 2*dm->pr[d] - dm->oldpr[d]; */
-                /* dm->oldpr[d] = temp; */
+            if (step >= n_start){
+                for (int d = 0; d < 3; d++){
+                    double temp = dm->pr[d];
+                    dm->pr[d] = 2*dm->pr[d] - dm->oldpr[d] + 
+                        (dm->F[d])*dt*dt*10 *(d==0);
+                    dm->oldpr[d] = temp;
+                }
             }
 
             temp = dm->oldr;
@@ -83,12 +94,13 @@ void *evolveThreaded(void *args)
 
             if (!(step % checkpoint_interval)){
                 print_checkpoint("checkpoints", dm);
-                fprintf(stdout, "%04d  %5.3f\t%.3f\t%5.3f  %5.3f  %5.3f\t%f\n",
+                fprintf(stdout, "%04d  %5.3f\t%.3f\t%5.3f  %5.3f  %5.3f\t%.2e %.2e\n",
                         step/checkpoint_interval, t, E,
                         (mu[0]/nmagnetic)/MU, 
                         (mu[1]/nmagnetic)/MU, 
                         (mu[2]/nmagnetic)/MU,
-                        dot(v, v));
+                        dot(v, v),
+                        dm->pFave/step);
             }
             
             t += dt;
@@ -111,7 +123,7 @@ void setup(domain *dm)
     /* Establish the domain */
     domain_populate(dm, npart);
     domain_set_v0(dm, 0, 0, 0);
-    domain_set_boundary(dm, 0, PERIODIC);
+    domain_set_boundary(dm, 0, REFLECTING);
     domain_set_boundary(dm, 1, PERIODIC);
     domain_set_boundary(dm, 2, PERIODIC);
 }

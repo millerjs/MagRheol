@@ -104,12 +104,12 @@ int domain_populate(domain *dm, int n)
     dm->pr[0] = dm->dim[0] + 5;
     dm->pr[1] = dm->dim[1] / 2.;
     dm->pr[2] = dm->dim[2] / 2;
-    dm->pR = 10;
+    dm->pFave = 0;
+    dm->pR = 5;
     for (int d = 0; d < 3; d ++){
         dm->oldpr[d] = dm->pr[d];
         dm->F[d] = 0;
     }
-    dm->oldpr[0] += .1*dt;
     
     int m = 0;
     for (double i = 0; i < ceil(r); i++){
@@ -236,7 +236,7 @@ void force_DLVO_Projectile(domain *dm)
         vec res;
         double r = 0;
         for (int d = 0; d < 3; d ++){
-            res[d] = dm->r[3*m+d] - dm->pr[d];
+            res[d] = dm->pr[d] - dm->r[3*m+d];
             r += res[d]*res[d];    
         }
         double C = 3*MU_S*MU_S/(4*PI*MU_0*pow(2*R, 4));
@@ -244,6 +244,7 @@ void force_DLVO_Projectile(domain *dm)
         for (int d = 0; d < 3; d++)
             dm->pF[d] += res[d]/r*f;
     }
+    dm->pFave += dm->pF[0];
 }
 
 void force_DLVO_Proj_Part(domain *dm, int m)
@@ -251,9 +252,12 @@ void force_DLVO_Proj_Part(domain *dm, int m)
     for (int i = 0; i < dm->npart; i++){
         if (i!=m){
             vec res;
-            double r = dist(dm, m, i, res);
+            res[0] = dm->r[3*m+0] - dm->pr[0];
+            res[1] = dm->r[3*m+1] - dm->pr[1];
+            res[2] = dm->r[3*m+2] - dm->pr[2];
+            double r = norm(res);
             double C = 3*MU_S*MU_S/(4*PI*MU_0*pow(2*R, 4));
-            double f = C*exp(-40*(r - 2*R));
+            double f = C*exp(-40*(r - R - dm->pR));
             dm->E[m] += C*exp(-40*r)*exp(40*2*R)*(40*r+1)/(r*r);
             for (int d = 0; d < 3; d++)
                 dm->F[3*m+d] += res[d]/r*f;
@@ -339,7 +343,7 @@ int calculate_force(domain *dm, int m)
         dm->F[3*m+d] = 0;
     force_DLVO(dm, m);
     force_DipoleDipole(dm, m);
-    /* force_DLVO_Proj_Part(dm, m); */
+    force_DLVO_Proj_Part(dm, m);
     force_drag(dm, m);
     return 0;
 }

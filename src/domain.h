@@ -39,6 +39,7 @@ typedef struct{
     double *pr;
     double *oldpr;
     double *pF;
+    double pFave;
     double pR;
     unsigned char *magnetic;
 } domain;

@@ -1,6 +1,6 @@
 from numpy import *
 
-npart = 729
+npart = 343
 maxt = 20.
 ratio = .3
 dt = .001
