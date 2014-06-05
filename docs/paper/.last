@@ -20,7 +20,7 @@ the ability of a massive projectile to penetrate the fluid.
 
 %% \begin{multicols*}{2}
 
-\section*{Introduction}
+\section{Introduction}
 
 Magnetorheological fluids, similar to their ferrofluid cousins, have
 the ability to be controlled by magnetic fields. Composed of a
@@ -47,17 +47,15 @@ that relies on {\tt GNU\_SOURCE} and therefore the code has only been
 tested on a GNU linux machine. In order to run the simulation, the
 code must be compiled.  This can be accomplished by running {\tt make}
 in the root directory of the software.  To run the software, specify a
-configuration file as such: {\tt ./magrheol mag.config}.  The first 6
-columns of the output specify the checkpoint number, the current time,
-the internal energy, and the $\hat x, \hat y, \hat z$ components of
-the average magnetic moment. The code also outputs a log file {\tt
-magrheol.log} and three different data files at each checkpoint
-interval containing information about (1) all the particles (2) the
-magnetic particles and (3) the projectile into the directory {\tt checkpoints}.
+configuration file as such: {\tt ./magrheol mag.config}.  The output
+specifies the checkpoint number, the current time and the $\hat
+x, \hat y, \hat z$ components of the average magnetic moment. The code
+also outputs a log file {\tt magrheol.log} and three different data
+files at each checkpoint interval containing information about (1) all
+the particles (2) just the magnetic particles and (3) the projectile into
+the directory {\tt checkpoints}.
 
-
-
-\section*{Fluid Model}
+\section{Fluid Model}
 
 The model presented on this paper is based on the work of Y. Ido,
 T. Inagaki, and T. Yamaguchi\cite{1}.  For simplicity, the model fluid
@@ -69,7 +67,7 @@ in particles of radius $1.5 \mu$m with a density of $\rho = 2.5\times10^{-4}$
 kg~m$^{-3}$. The non-magnetic particles maintain the same properties
 aside from the lack of magnetic dipole moment.  
 
-\subsection*{Domain and Magnetic Field}
+\subsection{Domain and Magnetic Field}
 
 This simulation ignores the effect of the fluid on the magnetic field,
 and the field strength and direction is considered constant throughout
@@ -124,7 +122,7 @@ MU=                   .01
 \end{verbatim}
 
 
-\subsection*{Forces/Torques}
+\subsection{Forces/Torques}
 
 Due to the reduction of the magnetic particles to spheres with dipole
 moments, the forces needed to simulate the fluid included
@@ -167,7 +165,7 @@ T_{Dipole} = \frac{1}{4\pi\mu_0||\vec r||^3} \left ( \mu_i\times \mu_j - \frac 3
 }
 
 
-\subsection*{Evolving the state}
+\subsection{Evolving the state}
 
 Initially, populating to domain with particles was done randomly.  The
 random placement of the particles started the simulation with too high
@@ -213,9 +211,11 @@ rheological properties given a magnetic field strength and particle
 ratio. However, this metric was unreliable due the random nature of
 the particles and the comparatively similar size of the projectile and
 the particles.  Instead the k-means clustering algorithm was used to
-analyze the chaining characteristics of the fluid.
+analyze the chaining characteristics of the fluid. Submitted with this
+paper is a demonstration of the projectile into the domain with and
+without an applied magnetic field.
 
-\subsection*{Results}
+\subsection{Results}
 
 Figures~\ref{initial}~\&~\ref{final} demonstrate the initial state
 $t=0$ms and the final state $t=2.0$ms for a simulation with 343
@@ -254,20 +254,46 @@ $K=13$, $H = 1$ mT, $dt = 1\E{-6} $ ms} {kmeans}{.8}
 \figH{../../analysis/h1000.png}{K-Means clustering distortion over time, 
 $K=13$, $H = 1000$ mT, $dt = 1\E{-6} $ ms} {kmeans}{.8}
 
-Figure~ref{rates}
+Figure~\ref{rates} demonstrates the fitted evolutions of the system
+under magnetic fields of differing strengths.
 
 \figH{../../analysis/plt4.png}{Clustering rate comparison for various magnetic field strengths} {rates}{.8}
 
-\section*{Conclusions}
+Below, Figure~\ref{decay} displays the decay rates as a function of
+magnetic field strength. The rates appear to follow a power trend
+where $\text{rate} = -0.01390156 H^{-1.4020727} + 3.0757098$.
+
+\figH{../../analysis/decays.png}{Clustering rate comparison for various magnetic field strengths} {decay}{.8}
+
+
+
+\section{Conclusions}
 
 In general, the most challenging part of this project was debugging. A
 large difficulty arose in finding an error in indexing which wrote the
 Dipole-Dipole force to the wrong particles.  Given that the forces
 used were derived in the Ido paper\cite{1} the only additional force
-required was the general stokes viscosity.
+required was the general stokes viscosity. Additional difficulties in
+the project were due to the large number of steps needed to evolve the
+system, which limited the spectrum of field magnitudes and prevented
+me from studying the effect of changing the magnetic to non-magnetic
+particle ratios.  Though i was unable to study the effects of changing
+the ratio, I was able to gather information on how the field strength
+affected my simulation in terms of the magnetic field to the power
+-1.4.
 
+\section{Index of Videos}
 
-\newpage
+\begin{itemize}
+\item Video 1: 343 particles with a
+  ratio $\phi = .5$ evolved for 1.2 milliseconds. All boundary
+  conditions are periodic.
+\item Video 2: 729 particles with conditions as above.
+\item Video 3: No external magnetic field with conditions as above.
+\item Video t: With external magnetic field with condistions as above
+\end{itemize}
+
+%% \newpage
 \vspace{40pt}
 \begin{thebibliography}{9}
 
@@ -294,6 +320,7 @@ ViSit Visualization, animation and analysis tool.
 SciPy k-means. 
 \url{http://docs.scipy.org/doc/scipy-0.13.0/reference/generated/scipy.cluster.vq.kmeans.html}.
 The Scipy community. Copyright 2008-2009.
+
 
 
 \end{thebibliography}

@@ -2,7 +2,7 @@ import plot as plt
 from scipy.cluster.vq import vq, kmeans, whiten
 from numpy import *
 
-n = 800
+n = 1200
 k = 13
 
 def cluster(i):
