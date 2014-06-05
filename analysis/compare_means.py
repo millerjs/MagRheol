@@ -4,7 +4,7 @@ from numpy import *
 
 k = 13
 
-path = "h1000.dat"
+path = "h1.dat"
 
 data = array(plt.parse(path))
 
@@ -18,7 +18,7 @@ fig, ax = plt.new_plot(title="K-means, %d Clusters" % k,
                        xaxis="Time [ms]",
                        yaxis="K-means distortion")
 
-X = linspace(0, 800, 100)
+X = linspace(0, max(data[:,0]), 100)
 plt.dot(data[:,0], data[:,1], "H = 100 mT")
 plt.add(X, f(X, p[0], p[1], p[2]), "Exponential fit")
-plt.save_plot(fig, ax, "plt2.png")
+plt.save_plot(fig, ax, "plt3.png")

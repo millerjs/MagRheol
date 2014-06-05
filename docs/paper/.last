@@ -30,10 +30,10 @@ conformational changes. A magnetic particle experiences an interaction
 force with those surrounding it, but the random alignment of the
 magnetic poles prevents this force from creating a global structure
 amongst them. With the application of an external magnetic field, the
-torsion aligns the magnetic along the field.  This uniformity causes
-the magnetic pole interactions to create chain-like structures amongst
-the magnetic particles. These chain structures increase the apparent
-magnitude of the fluid and may cause the fluid to become a
+torsion aligns the magnetic moments along the field.  This uniformity
+causes the magnetic pole interactions to create chain-like structures
+amongst the magnetic particles. These chain structures increase the
+apparent magnitude of the fluid and may cause the fluid to become a
 viscoelastic solid.  This property gives MR fluids applications in
 vehicle shock absorbers, prosthetics, and impact resistant
 materials. The goal of creating a model of MR fluids was to look at
@@ -44,7 +44,17 @@ non-magnetic particle ratios.
 The simulation was written in C and is available at
 \url{github.com/millerjs/MagRheol}. There is a preprocessor definition
 that relies on {\tt GNU\_SOURCE} and therefore the code has only been
-tested on a GNU linux machine.
+tested on a GNU linux machine. In order to run the simulation, the
+code must be compiled.  This can be accomplished by running {\tt make}
+in the root directory of the software.  To run the software, specify a
+configuration file as such: {\tt ./magrheol mag.config}.  The first 6
+columns of the output specify the checkpoint number, the current time,
+the internal energy, and the $\hat x, \hat y, \hat z$ components of
+the average magnetic moment. The code also outputs a log file {\tt
+magrheol.log} and three different data files at each checkpoint
+interval containing information about (1) all the particles (2) the
+magnetic particles and (3) the projectile into the directory {\tt checkpoints}.
+
 
 \section*{Fluid Model}
 
@@ -158,29 +168,35 @@ T_{Dipole} = \frac{1}{4\pi\mu_0||\vec r||^3} \left ( \mu_i\times \mu_j - \frac 3
 
 \subsection*{Evolving the state}
 
-%% Initial
+Initially, populating to domain with particles was done randomly.  The
+random placement of the particles started the simulation with too high
+of an initial energy because of perticle overlap.  Monte Carlo
+placement of the particles was ruled out as unnecessarily costly.
+Therefore, the particals in all simulationes are initialized along an
+equally spaced grid. Whether or not a particle is a dipole is
+determinite by linear random sampling with the given ratio $\phi$.
 
 Both the positions and the orientation of the dipole moment were
-evolved using Verlet integration. Because long evolution and the small
-time step that were necessary, I decided to parallelize the verlet
-algorithm in order to utilize any available cores. I created a pool of
-{\tt pthreads}.  Each thread performs $\frac1N$th of the forces and
-verlet integration where $N$ is the number of threads set to be
-used. The inclusion of this scheme necessitated an update in the
-integration. Due to the race condition introduced by the threading,
-the data belonging to thread was not guaranteed to be at the right
-time step when viewed by another thread.  To handle this, the data was
-stored in pre-allocated temporary arrays.  Each thread utilized a
-thread barrier to wait until all threads had updated their positions
-to a temporary memory location before the master thread performed
-calculations involving projectile position and performed output writes
-to checkpoints.  After the thread barrier was reached, the variables
-pointing to the (old and new) position and dipole vectors were
-rotated. Using 16 cores I was able to achieve approximately a 1200\%
-speedup.  Even with this parallelization, simulations were relatively
-costly, making it difficult to verify parameters such as the time step
-and gather quantitative data on the rheological properties of the
-fluid.
+evolved using Verlet integration. Because of the long evolution time
+and the small time step that were necessary, I decided to parallelize
+the verlet algorithm in order to utilize any available cores. I
+created a pool of {\tt pthreads}.  Each thread performs $\frac1N$th of
+the force and angle verlet integration where $N$ is the number of
+threads set to be used. The inclusion of this scheme necessitated an
+update in the integration. Due to the race condition introduced by the
+threading, the data belonging to each thread was not guaranteed to be
+at the right time step when viewed by another thread.  To handle this,
+the data was stored in pre-allocated temporary arrays.  Each thread
+utilized a thread barrier to wait until all threads had updated their
+positions to a temporary memory location before the master thread
+performed calculations involving projectile position and performed
+output writes to checkpoints.  After the thread barrier was reached,
+the variables pointing to the (old and new) position and dipole
+vectors were rotated. Using 16 cores I was able to achieve
+approximately a 1200\% speedup.  Even with this parallelization,
+simulations were relatively costly, making it difficult to verify
+parameters such as the time step and gather quantitative data on the
+rheological properties of the fluid.
 
 In order to test the rheological properties of the fluid, a massive
 particle was projected into the domain, and propelled by a small
@@ -193,11 +209,6 @@ Brownian opposition force on the projectile by the simulation
 particles. The time required for the particle to travel through the
 domain was used as a metric of the rheological properties given a
 magnetic field strength and particle ratio.
-
-The simulation code runs by taking a configuration file as an input
-and outputs three different data files at each checkpoint interval
-containing information about (1) all the particles (2) the magnetic
-particles and (3) the projectile.
 
 \subsection*{Results}
 
