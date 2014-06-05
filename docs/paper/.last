@@ -56,6 +56,7 @@ interval containing information about (1) all the particles (2) the
 magnetic particles and (3) the projectile into the directory {\tt checkpoints}.
 
 
+
 \section*{Fluid Model}
 
 The model presented on this paper is based on the work of Y. Ido,
@@ -198,17 +199,21 @@ simulations were relatively costly, making it difficult to verify
 parameters such as the time step and gather quantitative data on the
 rheological properties of the fluid.
 
-In order to test the rheological properties of the fluid, a massive
-particle was projected into the domain, and propelled by a small
-force.  This process is akin to measuring the viscosity of a fluid by
-calculating the rate of descent of an object under a gravitational
-field. The strength of the external force on the projectile was
-determined empirically by testing which forces provided stable motion
-at a reasonable time step while still eventually overcoming any
-Brownian opposition force on the projectile by the simulation
-particles. The time required for the particle to travel through the
-domain was used as a metric of the rheological properties given a
-magnetic field strength and particle ratio.
+In order to test the rheological properties of the fluid, an attempt
+was made to accelerate a massive particle into the domain, propelled
+by a small force.  This process is akin to measuring the viscosity of
+a fluid by calculating the rate of descent of an object under a
+gravitational field. The strength of the external force on the
+projectile was determined empirically by testing which forces provided
+stable motion at a reasonable time step while still eventually
+overcoming any Brownian opposition force on the projectile by the
+simulation particles. The intent was to use the time required for the
+particle to travel through the domain was used as a metric of the
+rheological properties given a magnetic field strength and particle
+ratio. However, this metric was unreliable due the random nature of
+the particles and the comparatively similar size of the projectile and
+the particles.  Instead the k-means clustering algorithm was used to
+analyze the chaining characteristics of the fluid.
 
 \subsection*{Results}
 
@@ -226,23 +231,40 @@ particles.
 
 In order to quantitatively measure the convergence pattern of the
 chaining effects the k-means clustering algorithm\cite{4} was used to
-ascribe a chain to the particle locations projected onto X-Y plane (as
-it is perpendicular to the magnetic field). For a simulation with a
-cubic domain of side length 42.2$\mu$m, there can be 14 molecules
-chained along the magnetic field direction in the domain.  Therefore,
-for 343 particles, we would expect to see approximately 13
+ascribe a chain to the magnetic particle locations projected onto X-Y
+plane (as it is perpendicular to the magnetic field). For a simulation
+with a cubic domain of side length 42.2$\mu$m, there can be 14
+molecules chained along the magnetic field direction in the domain.
+Therefore, for 343 particles, we would expect to see approximately 13
 clusters. Figure~\ref{kmeans} below demonstrates the distortion (the
 displacement of each point to the centroid it has been classified to)
 of the points after applicaiton of the k-means algorithm as a function
 of time.
 
-\figH{../../analysis/plt2.png}{K-Means clustering distortion over time, 
-$K=13$, $dt = 1\E{-6} $ ms} {kmeans}{.8}
 
 An exponential function was applied using a linear error regression of
-the form $\text{Distortion} = A e^{-Bt} + C$.  For this analysis we
-are interested in the decay rate $B$. For the example above, the decay
-rate was $B = 0.00567192~s^{-2}$.
+the form $\text{Distortion} = A e^{-Bt^C} + D$.  For this analysis we
+are interested in the decay power $C$. For the examples above, the
+decay rate $C = 1.54$ and 2.15 for field strengths of $ H = 1$mT and
+1000mT respectively.
+
+\figH{../../analysis/h1.png}{K-Means clustering distortion over time, 
+$K=13$, $H = 1$ mT, $dt = 1\E{-6} $ ms} {kmeans}{.8}
+
+\figH{../../analysis/h1000.png}{K-Means clustering distortion over time, 
+$K=13$, $H = 1000$ mT, $dt = 1\E{-6} $ ms} {kmeans}{.8}
+
+Figure~ref{rates}
+
+\figH{../../analysis/plt4.png}{Clustering rate comparison for various magnetic field strengths} {rates}{.8}
+
+\section*{Conclusions}
+
+In general, the most challenging part of this project was debugging. A
+large difficulty arose in finding an error in indexing which wrote the
+Dipole-Dipole force to the wrong particles.  Given that the forces
+used were derived in the Ido paper\cite{1} the only additional force
+required was the general stokes viscosity.
 
 
 \newpage
