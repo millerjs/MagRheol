@@ -18,7 +18,7 @@
 
 domain *domain_new(double x, double y, double z)
 {
-    srand(0);
+    srand(12345);
     domain *new = (domain*)malloc(sizeof(domain));
     new->dim[0] = x;
     new->dim[1] = y;
@@ -268,7 +268,7 @@ void force_DLVO_Proj_Part(domain *dm, int m)
 void force_drag(domain *dm, int m)
 {
     for (int d = 0; d < 3; d++)
-        dm->F[3*m+d] -= dm->v[3*m+d]*1.5e-4*R;
+        dm->F[3*m+d] -= dm->v[3*m+d]*1.5e-2*R;
 }
 
 void check_boundary(domain *dm, int m)

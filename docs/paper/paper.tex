@@ -18,7 +18,7 @@ the ability of a massive projectile to penetrate the fluid.
 
 }
 
-\begin{multicols*}{2}
+%% \begin{multicols*}{2}
 
 \section*{Introduction}
 
@@ -127,16 +127,17 @@ is derived from the van der Waal's attraction and the Double Layer
 force caused by charge dissociation at particle surfaces. 
 
 \al{
- F_{rep} = \frac{3\mu_s^2}{64\pi\mu_0R^4} e^{(-\kappa S)}
+ F_{rep} = \frac{3\mu_s^2}{64\pi\mu_0R^4} e^{-\kappa S}
   \frac{\vec r}{||\vec r||}
 }
 where $S$ is the distance between the surfaces of the two particles
 \footnote{This repulsion convention was novel to me.  I found it
-  extremely interesting because of its generality to varied surface
-  topologies.}. The Dipole-Dipole interaction force was 
+  extremely interesting because of its generality over surface
+  topologies.} and is the inverse Debeye screening length, with a
+value provided in the Ido paper\cite{1}. The Dipole-Dipole interaction force
+was
 \al{
- F_{Dipole} &= \frac{3}{4\pi\mu_0||\vec r||^4}  \bigg[ (\mu_i\cdot \mu_j) \frac {\vec r}{||\vec r||} - 5(\mu_i\cdot\vec r )(\mu_j\cdot \vec r)\frac {\vec r}{||\vec r||} \\
-&~~~~ + \lp (\mu_i\cdot \vec r)\mu_j + (\mu_j\cdot \vec r\mu_i) \rp \frac1{||\vec r||} \bigg ].
+ F_{Dipole} &= \frac{3}{4\pi\mu_0||\vec r||^4}  \bigg[ (\mu_i\cdot \mu_j) \frac {\vec r}{||\vec r||} - 5(\mu_i\cdot\vec r )(\mu_j\cdot \vec r)\frac {\vec r}{||\vec r||}  + \lp (\mu_i\cdot \vec r)\mu_j + (\mu_j\cdot \vec r\mu_i) \rp \frac1{||\vec r||} \bigg ].
 }
 The drag force was applied with Stokes' drag,
 \al{
@@ -153,6 +154,11 @@ the dipoles around it,
 \al{
 T_{Dipole} = \frac{1}{4\pi\mu_0||\vec r||^3} \left ( \mu_i\times \mu_j - \frac 3 {||\vec r||^2} (\mu_j\cdot \vec r) \mu_i \times \vec r\right ).
 }
+
+
+\subsection*{Evolving the state}
+
+%% Initial
 
 Both the positions and the orientation of the dipole moment were
 evolved using Verlet integration. Because long evolution and the small
@@ -176,12 +182,65 @@ costly, making it difficult to verify parameters such as the time step
 and gather quantitative data on the rheological properties of the
 fluid.
 
+In order to test the rheological properties of the fluid, a massive
+particle was projected into the domain, and propelled by a small
+force.  This process is akin to measuring the viscosity of a fluid by
+calculating the rate of descent of an object under a gravitational
+field. The strength of the external force on the projectile was
+determined empirically by testing which forces provided stable motion
+at a reasonable time step while still eventually overcoming any
+Brownian opposition force on the projectile by the simulation
+particles. The time required for the particle to travel through the
+domain was used as a metric of the rheological properties given a
+magnetic field strength and particle ratio.
 
+The simulation code runs by taking a configuration file as an input
+and outputs three different data files at each checkpoint interval
+containing information about (1) all the particles (2) the magnetic
+particles and (3) the projectile.
+
+\subsection*{Results}
+
+Figures~\ref{initial}~\&~\ref{final} demonstrate the initial state
+$t=0$ms and the final state $t=2.0$ms for a simulation with 343
+particles.
+
+\begin{multicols}{2}
+\figH{initial.png}{Initial Setup with magnetic (blue) and non-magnetic
+  (white).}{initial}{.4}
+
+\figH{final.png}{Final state after $t=2.0$ms. Magnetic (blue) and non-magnetic
+  (white).}{final}{.4}
+  \end{multicols}
+
+In order to quantitatively measure the convergence pattern of the
+chaining effects the k-means clustering algorithm\cite{4} was used to
+ascribe a chain to the particle locations projected onto X-Y plane (as
+it is perpendicular to the magnetic field). For a simulation with a
+cubic domain of side length 42.2$\mu$m, there can be 14 molecules
+chained along the magnetic field direction in the domain.  Therefore,
+for 343 particles, we would expect to see approximately 13
+clusters. Figure~\ref{kmeans} below demonstrates the distortion (the
+displacement of each point to the centroid it has been classified to)
+of the points after applicaiton of the k-means algorithm as a function
+of time.
+
+\figH{../../analysis/plt2.png}{K-Means clustering distortion over time, 
+$K=13$, $dt = 1\E{-6} $ ms} {kmeans}{.8}
+
+An exponential function was applied using a linear error regression of
+the form $\text{Distortion} = A e^{-Bt} + C$.  For this analysis we
+are interested in the decay rate $B$. For the example above, the decay
+rate was $B = 0.00567192~s^{-2}$.
+
+
+\newpage
+\vspace{40pt}
 \begin{thebibliography}{9}
 
 
 \bibitem{1}
-Y. Ido, T. Inagaki, and T. Yamaguchi. 
+Y. Ido, T. Inagaki, and T. Yamaguchi.
 \emph{Numerical simulation of microstructure formation of suspended particles in magnetorheological fluids.}  
 Journal of Physics: Condensed Matter. 
 IOP Publishing.
@@ -198,11 +257,17 @@ ViSit Visualization, animation and analysis tool.
 \newline 
 \url{https://wci.llnl.gov/codes/visit/}
 
+\bibitem{4}
+SciPy k-means. 
+\url{http://docs.scipy.org/doc/scipy-0.13.0/reference/generated/scipy.cluster.vq.kmeans.html}.
+The Scipy community. Copyright 2008-2009.
+
+
 \end{thebibliography}
 
 
 
-\end{multicols*}
+%% \end{multicols*}
 
 
 \end{document}

@@ -1,8 +1,8 @@
-/******************************************************************************
+/*******************************************************************
  * FILE        : magrehol.c
  * AUTHOR      : Joshua Miller 
  * DESCRIPTION : Main function for magnetorehological simulations
- ******************************************************************************/
+ *******************************************************************/
 
 #define _GNU_SOURCE
 
@@ -19,6 +19,7 @@
 
 double MIN_X = 12345;
 int t_start = 10;
+double use_projectile = 0;
 
 void *evolveThreaded(void *args)
 {
@@ -38,6 +39,8 @@ void *evolveThreaded(void *args)
     double *temp;
     MIN_X = dm->pr[0];
 
+    int projectiling = 0;
+
     while (t < maxt && dm->pr[0] > 0){
 
         /* Update positions and regroup */
@@ -48,27 +51,29 @@ void *evolveThreaded(void *args)
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
 
-            if (t == t_start){
-                fprintf(stderr, "\n\nStarting projectile\n\n");
-                dm->oldpr[0] += 1.0*dt;
-            }
-            
-            /* calculate force on projectile */
-            force_DLVO_Projectile(dm);
-            
-            double F = -.1;
-
-            /* update the projectile */
-            if (t >= t_start){
-                for (int d = 0; d < 3; d++){
-                    double temp = dm->pr[d];
-                    dm->pr[d] = 2*dm->pr[d] - dm->oldpr[d] + 
-                        (dm->F[d] + F)*dt*dt*10*(d==0);
-                    dm->oldpr[d] = temp;
+            if (use_projectile){
+                if (!projectiling && t > t_start){
+                    projectiling = 1;
+                    fprintf(stderr, "\n\nStarting projectile\n\n");
+                    dm->oldpr[0] += 1.0*dt;
                 }
-            }
+            
+                /* calculate force on projectile */
+                force_DLVO_Projectile(dm);
+                double F = -1.;
 
-            MIN_X = MIN(MIN_X, dm->pr[0]);
+                /* update the projectile */
+                if (t >= t_start){
+                    for (int d = 0; d < 3; d++){
+                        double temp = dm->pr[d];
+                        dm->pr[d] = 2*dm->pr[d] - dm->oldpr[d] + 
+                            (dm->F[d] + F)*dt*dt*(d==0);
+                        dm->oldpr[d] = temp;
+                    }
+                }
+
+                MIN_X = MIN(MIN_X, dm->pr[0]);
+            }
 
             temp = dm->oldr;
             dm->oldr = dm->r;
@@ -110,16 +115,17 @@ void *evolveThreaded(void *args)
             
             t += dt;
             step += 1;
-        }
 
-        if (thread->id == thread->pool->size-1){
+            if (t >= maxt)
+                printf("Maximum time exceeded.\n");
+            if (dm->pr[0] < 0)
+                printf("Particle reached boundary.\n");
 
         }
 
         pthread_barrier_wait(&thread->pool->barrier1);
 
-    }
-    
+    }    
     return NULL;
 }
 
@@ -128,7 +134,7 @@ void setup(domain *dm)
     /* Establish the domain */
     domain_populate(dm, npart);
     domain_set_v0(dm, 0, 0, 0);
-    domain_set_boundary(dm, 0, REFLECTING);
+    domain_set_boundary(dm, 0, PERIODIC);
     domain_set_boundary(dm, 1, PERIODIC);
     domain_set_boundary(dm, 2, PERIODIC);
 }
