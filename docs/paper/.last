@@ -1,0 +1,208 @@
+\include{zLaTex-Preamble}
+
+\title{Modeling Magnetorheological Fluids \\ {\small CHEM 26800 Computational Chemistry and Biology \\Sprint 2014}} 
+\author{Joshua Miller}
+\date{ }
+
+\begin{document}
+\rhead{\fancyplain{}{Joshua Miller}}
+\maketitle
+
+\abstract{ 
+
+The purpose of this project was to create a simple model of a
+magnetorheological fluid in order to examine the structural trends as
+a function of magnetic to non-magnetic particle ratio and external
+field strength.  The rheological properties were examined by testing
+the ability of a massive projectile to penetrate the fluid.
+
+}
+
+\begin{multicols*}{2}
+
+\section*{Introduction}
+
+Magnetorheological fluids, similar to their ferrofluid cousins, have
+the ability to be controlled by magnetic fields. Composed of a
+micrometer sized magnetic particles suspended in a non-magnetic
+medium, the application of an external magnetic field induces two
+conformational changes. A magnetic particle experiences an interaction
+force with those surrounding it, but the random alignment of the
+magnetic poles prevents this force from creating a global structure
+amongst them. With the application of an external magnetic field, the
+torsion aligns the magnetic along the field.  This uniformity causes
+the magnetic pole interactions to create chain-like structures amongst
+the magnetic particles. These chain structures increase the apparent
+magnitude of the fluid and may cause the fluid to become a
+viscoelastic solid.  This property gives MR fluids applications in
+vehicle shock absorbers, prosthetics, and impact resistant
+materials. The goal of creating a model of MR fluids was to look at
+trends in its rheological properties by examining the viscosity under
+varying magnetic field strengths as well as varying magnetic to
+non-magnetic particle ratios.
+
+The simulation was written in C and is available at
+\url{github.com/millerjs/MagRheol}. There is a preprocessor definition
+that relies on {\tt GNU\_SOURCE} and therefore the code has only been
+tested on a GNU linux machine.
+
+\section*{Fluid Model}
+
+The model presented on this paper is based on the work of Y. Ido,
+T. Inagaki, and T. Yamaguchi\cite{1}.  For simplicity, the model fluid
+is composed of uniform, hard, spherical particles suspended in a
+carrier fluid.  The magnetic particles are approximated to be dipoles.
+Particle parameters used in this simulation mirror those in the Ido
+simulation. The magnetic material is approximated to be ZnFe$_2$O$_4$
+in particles of radius $1.5 \mu$m with a density of $\rho = 2.5\times10^{-4}$
+kg~m$^{-3}$. The non-magnetic particles maintain the same properties
+aside from the lack of magnetic dipole moment.  
+
+\subsection*{Domain and Magnetic Field}
+
+This simulation ignores the effect of the fluid on the magnetic field,
+and the field strength and direction is considered constant throughout
+the domain. The domain was constructed by selecting the number of
+particles used in the simulation, a cubic number for convenience, and
+using this to determine the domain size. For example, for a simulation
+with 343 particles, the domain volume was approximated as
+
+\al{ 
+\text{V} &= \frac{\text{no. of particles}}{\text{particle dens}} \\
+\text{particle dens} &= \frac{\rho}{m_\text{particle}} \\
+m_\text{particle} &= m_\text{molecule}\times\frac{\text{molecules}}{\text{particle}}\\
+m_\text{molecule} &= \frac{m_{ZnFe_2O_4}}{N_A}\\
+\frac{\text{molecules}}{\text{particle}} &\approx \frac{r_{particle}^3}{r_{molecule}^3} 
+}
+
+This calculation provided for a cubic domain on the order of $40 \mu$m
+in length.  The external magnetic field was $- H\hat z$ across the
+domain. During the initial creation of the model the boundary
+condition {\tt PERIODIC} was applied to all faces of the domain.  All
+distances calculated for directions with periodic faces used the
+minimum image convention. I found that the periodic boundary condition
+was especially important for the faces perpendicular to magnetic
+field.  This not only allowed the fluid to behave as if it were in a
+larger domain but also prevented the truncation of particle chains
+near the boundaries that would be seen in a non-physically small
+domain from a lack of dipole attraction across the border. This
+condition is necessary because the dipole interaction force was not
+mirrored across a reflecting boundary condition in this
+simulation. The {\tt REFLECTING} boundary condition was created simply
+by reflecting the velocity of particles crossing the face. 
+
+The code reads in a parameter config file to avoid compilation for every new
+initial setup. Included below is a sample config file:
+\begin{verbatim}
+# magrheol config file
+# maxt in 1e-4 seconds
+maxt=                 12.
+checkpoint_interval=  50
+dt=                   .001
+# Particle counts/ratio
+npart=                343
+ratio=                .5
+# dimensions in micrometers
+X=                    4.223095e+01
+Y=                    4.223095e+01
+Z=                    4.223095e+01
+# Magnetic field and dipole
+# mTesla
+H=                    70
+MU=                   .01
+\end{verbatim}
+
+
+\subsection*{Forces/Torques}
+
+Due to the reduction of the magnetic particles to spheres with dipole
+moments, the forces needed to simulate the fluid included
+$F_\text{rep}$, the physical repulsion force,
+$F_\text{Dipole-Dipole}$, the dipole interaction between magnetic
+particles, and $F_\text{drag}$. Because the particles are on the
+micrometer scale, the random force due to Brownian motion was
+considered negligible. The forces used were as derived in the Ido
+paper\cite{1}. The repulsion force was based on the DLVO theory which
+is derived from the van der Waal's attraction and the Double Layer
+force caused by charge dissociation at particle surfaces. 
+
+\al{
+ F_{rep} = \frac{3\mu_s^2}{64\pi\mu_0R^4} e^{(-\kappa S)}
+  \frac{\vec r}{||\vec r||}
+}
+where $S$ is the distance between the surfaces of the two particles
+\footnote{This repulsion convention was novel to me.  I found it
+  extremely interesting because of its generality to varied surface
+  topologies.}. The Dipole-Dipole interaction force was 
+\al{
+ F_{Dipole} &= \frac{3}{4\pi\mu_0||\vec r||^4}  \bigg[ (\mu_i\cdot \mu_j) \frac {\vec r}{||\vec r||} - 5(\mu_i\cdot\vec r )(\mu_j\cdot \vec r)\frac {\vec r}{||\vec r||} \\
+&~~~~ + \lp (\mu_i\cdot \vec r)\mu_j + (\mu_j\cdot \vec r\mu_i) \rp \frac1{||\vec r||} \bigg ].
+}
+The drag force was applied with Stokes' drag,
+\al{
+ F_{drag} = -6\pi\eta r \vec v,
+}
+where the particle radius was used for the Stokes radius. In order for
+the particles to align to the magnetic field, the must experience a
+torque.  The torque on a magnetic dipole in an external field is
+\al{
+T_H &= \vec \mu \times \vec H.
+}
+Furthermore each magnetic particle experiences a torsion force from
+the dipoles around it,
+\al{
+T_{Dipole} = \frac{1}{4\pi\mu_0||\vec r||^3} \left ( \mu_i\times \mu_j - \frac 3 {||\vec r||^2} (\mu_j\cdot \vec r) \mu_i \times \vec r\right ).
+}
+
+Both the positions and the orientation of the dipole moment were
+evolved using Verlet integration. Because long evolution and the small
+time step that were necessary, I decided to parallelize the verlet
+algorithm in order to utilize any available cores. I created a pool of
+{\tt pthreads}.  Each thread performs $\frac1N$th of the forces and
+verlet integration where $N$ is the number of threads set to be
+used. The inclusion of this scheme necessitated an update in the
+integration. Due to the race condition introduced by the threading,
+the data belonging to thread was not guaranteed to be at the right
+time step when viewed by another thread.  To handle this, the data was
+stored in pre-allocated temporary arrays.  Each thread utilized a
+thread barrier to wait until all threads had updated their positions
+to a temporary memory location before the master thread performed
+calculations involving projectile position and performed output writes
+to checkpoints.  After the thread barrier was reached, the variables
+pointing to the (old and new) position and dipole vectors were
+rotated. Using 16 cores I was able to achieve approximately a 1200\%
+speedup.  Even with this parallelization, simulations were relatively
+costly, making it difficult to verify parameters such as the time step
+and gather quantitative data on the rheological properties of the
+fluid.
+
+
+\begin{thebibliography}{9}
+
+
+\bibitem{1}
+Y. Ido, T. Inagaki, and T. Yamaguchi. 
+\emph{Numerical simulation of microstructure formation of suspended particles in magnetorheological fluids.}  
+Journal of Physics: Condensed Matter. 
+IOP Publishing.
+15 July 2010. 
+
+\bibitem{2}
+Spinks, Joseph Michael. 
+\emph{Dynamic simulation of particles in a magnetorheological fluid.}
+PhD diss., Monterey California. 
+Naval Postgraduate School, 2008.
+
+\bibitem{3}
+ViSit Visualization, animation and analysis tool.
+\newline 
+\url{https://wci.llnl.gov/codes/visit/}
+
+\end{thebibliography}
+
+
+
+\end{multicols*}
+
+
+\end{document}

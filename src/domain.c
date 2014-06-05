@@ -18,7 +18,7 @@
 
 domain *domain_new(double x, double y, double z)
 {
-    srand(time(NULL));
+    srand(0);
     domain *new = (domain*)malloc(sizeof(domain));
     new->dim[0] = x;
     new->dim[1] = y;
@@ -101,7 +101,7 @@ int domain_populate(domain *dm, int n)
     for (int j = 0; j < 3; j ++)
         LOG("Particle discretization distance: %f", cell[j]);
 
-    dm->pr[0] = dm->dim[0] + 5;
+    dm->pr[0] = dm->dim[0] + 10;
     dm->pr[1] = dm->dim[1] / 2.;
     dm->pr[2] = dm->dim[2] / 2;
     dm->pFave = 0;

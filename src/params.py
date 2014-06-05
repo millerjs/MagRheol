@@ -11,7 +11,8 @@ print "npart=\t\t %e" % npart
 visc = 1.5e-4
 
 print "max_t=\t\t %e" % 20
-aradius = 1.35e-4 # micro m
+aradius = 1.35e-4
+# aradius = 1.26e-4*2 + 1.35e-4 + 60e-4*4)/2. # micro m
 partradius = 3.0/2 # micro m
 
 mperpartical = partradius**3/aradius**3

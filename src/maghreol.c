@@ -17,6 +17,9 @@
 #include "params.h"
 #include "math.h"
 
+double MIN_X = 12345;
+int t_start = 10;
+
 void *evolveThreaded(void *args)
 {
     thread_t *thread = (thread_t*) args;
@@ -33,37 +36,39 @@ void *evolveThreaded(void *args)
     if (thread->id == thread->pool->size -1)
         b = n;
     double *temp;
+    MIN_X = dm->pr[0];
 
-    while (t < maxt){
+    while (t < maxt && dm->pr[0] > 0){
 
         /* Update positions and regroup */
         update_positions(dm, a, b);
         update_angles(dm, a, b);
         pthread_barrier_wait(&thread->pool->barrier2);
 
-        /* int n_start = 10000; */
-        int n_start = 1000;
-
         /* Let thread0 handle IO and timestep */
         if (thread->id == 0){
 
-            if (step == n_start){
+            if (t == t_start){
                 fprintf(stderr, "\n\nStarting projectile\n\n");
-                dm->oldpr[0] += 2.0*dt;
+                dm->oldpr[0] += 1.0*dt;
             }
-
+            
             /* calculate force on projectile */
             force_DLVO_Projectile(dm);
             
+            double F = -.1;
+
             /* update the projectile */
-            if (step >= n_start){
+            if (t >= t_start){
                 for (int d = 0; d < 3; d++){
                     double temp = dm->pr[d];
                     dm->pr[d] = 2*dm->pr[d] - dm->oldpr[d] + 
-                        (dm->F[d])*dt*dt*10 *(d==0);
+                        (dm->F[d] + F)*dt*dt*10*(d==0);
                     dm->oldpr[d] = temp;
                 }
             }
+
+            MIN_X = MIN(MIN_X, dm->pr[0]);
 
             temp = dm->oldr;
             dm->oldr = dm->r;
@@ -94,7 +99,7 @@ void *evolveThreaded(void *args)
 
             if (!(step % checkpoint_interval)){
                 print_checkpoint("checkpoints", dm);
-                fprintf(stdout, "%04d  %5.3f\t%.3f\t%5.3f  %5.3f  %5.3f\t%.2e %.2e\n",
+                fprintf(stdout, "%04d  %5.3f\t%.3e\t%5.3f  %5.3f  %5.3f\t%.2e %.2e\n",
                         step/checkpoint_interval, t, E,
                         (mu[0]/nmagnetic)/MU, 
                         (mu[1]/nmagnetic)/MU, 
@@ -153,6 +158,10 @@ int main(int argc, char *argv[])
     threadpool_join(pool);
 
     print_checkpoint("checkpoints", dm);
+
+    printf("H\tMIN_X\n");
+    printf("%f\t%f\t%f\t%d", H, MIN_X, 
+           t - t_start, (int)(step-t_start/dt));
 
     close_log_file();
     
